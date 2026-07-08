@@ -54,3 +54,8 @@ This an Alpha test to collect bugs.
 4. Export ltx file,it will be located in your game bin folder.
 5. Copy the exported ltx file to `gamedata/configs` or create a mod in MO2.
 6. Restart the game
+<img width="1091" height="1142" alt="swappy-20260709-012222" src="https://github.com/user-attachments/assets/30910141-071e-49ac-98f0-baafb67130b0" />
+
+###Performance
+<img width="1226" height="918" alt="fr-perf" src="https://github.com/user-attachments/assets/394c6149-3ee5-43d4-a737-b400ec3763e9" />
+
