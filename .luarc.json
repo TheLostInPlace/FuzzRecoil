@@ -23,7 +23,8 @@
         "fuzz_recoil_utils",
         "db",
         "fuzz_recoil_converter",
-        "fuzz_recoil_logger"
+        "fuzz_recoil_logger",
+        "fuzz_recoil_imgui"
     ],
     "diagnostics.disable": [
         "unused-local",
