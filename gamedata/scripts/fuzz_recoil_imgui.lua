@@ -57,6 +57,8 @@ function renderImguiTab()
 	ImGui.Text(debug_text1)
 	_, showProfile = ImGui.Checkbox("Profile", showProfile)
 	ImGui.SameLine()
+	_, frm.debug_new_force = ImGui.Checkbox("new", frm.debug_new_force)
+	ImGui.SameLine()
 	_, showInfo = ImGui.Checkbox("Info", showInfo)
 	ImGui.SameLine()
 	_, showLogs = ImGui.Checkbox("Logs", showLogs)
@@ -177,12 +179,12 @@ function info_overlay()
 		)
 		ImGui.Separator()
 		ImGui.TextColored(vector4():set(0, 1, 0.5, 1), "Hud Trans offset")
-		vector_imgui_text_drawer(cur_hud_pos - ori_hand_trs[1], "Pos")
-		vector_imgui_text_drawer(cur_hud_rot - ori_hand_trs[2], "Rot", true)
-		vector_imgui_text_drawer(state.vel_hud_rot, "Vel Rot", true)
-		vector_imgui_text_drawer(state.hud_rot_smooth, "Smoothed Rot", true)
-		ImGui.Text(string.format("Raw Pitch: %.2f", math.deg(state.hud_rot_raw.y)))
-		ImGui.Text(string.format("Raw Target:Y%.2f|P %.2f", state.hud_rot_raw.x, state.hud_rot_raw.y))
+		vector_imgui_text_drawer(frm.state.hud_pos_raw, "Pos")
+		vector_imgui_text_drawer(frm.state.hud_rot_raw, "Rot", true)
+		vector_imgui_text_drawer(frm.state.vel_hud_rot, "Vel Rot", true)
+		vector_imgui_text_drawer(frm.state.hud_rot_smooth, "Smoothed Rot", true)
+		ImGui.Text(string.format("Raw Pitch: %.2f", math.deg(frm.state.hud_rot_raw.y)))
+		ImGui.Text(string.format("Raw Target:Y%.2f|P %.2f", frm.state.hud_rot_raw.x, state.hud_rot_raw.y))
 		-- ImGui.Text(string.format("EMA Smooth Y:%.2f P: %.2f", state.hud_rot_smooth.x, state.hud_rot_smooth.y))
 
 		local v_cap_ratio = math.abs(state.hud_rot_smooth.y) / config.max_hud_rot.y
@@ -298,8 +300,8 @@ function renderConfig()
 end
 
 function renderHudControls()
-	ImGui.Text("Original Hand Pos:" .. utils.vector_to_string(ori_hand_trs[1]))
-	ImGui.Text("Original Hand Rot:" .. utils.vector_to_string(ori_hand_trs[2]))
+	ImGui.Text("Original Hand Pos:" .. utils.vector_to_string(frm.ori_hand_trs[1]))
+	ImGui.Text("Original Hand Rot:" .. utils.vector_to_string(frm.ori_hand_trs[2]))
 	ImGui.Text(string.format("Current HUD Pos: X:%.3f, Y:%.3f, Z:%.3f", cur_hud_pos.x, cur_hud_pos.y, cur_hud_pos.z))
 	ImGui.Text(string.format("Current HUD Rot: X:%.3f, Y:%.3f, Z:%.3f", cur_hud_rot.x, cur_hud_rot.y, cur_hud_rot.z))
 	ImGui.Separator()
@@ -339,14 +341,14 @@ function renderHudControls()
 	--TODO: messy...
 	if ImGui.Button("UseOffset") then
 		frm.enable_hud_adjust()
-		frm.cur_hud_pos = ori_hand_trs[1] + test_cur_pos_inc
-		frm.cur_hud_rot = ori_hand_trs[2] + test_cur_rot_inc
+		frm.cur_hud_pos = vector():set(frm.ori_hand_trs[1]):add(test_cur_pos_inc)
+		frm.cur_hud_rot = vector():set(frm.ori_hand_trs[2]):add(test_cur_rot_inc)
 		frm.apply_cur_hud_hand()
 	end
 	ImGui.SameLine()
 	if ImGui.Button("GetOffset") then
-		test_cur_pos_inc = cur_hud_pos - ori_hand_trs[1]
-		test_cur_rot_inc = cur_hud_rot - ori_hand_trs[2]
+		test_cur_pos_inc = vector():set(frm.cur_hud_pos):sub(frm.ori_hand_trs[1])
+		test_cur_rot_inc = vector():set(frm.cur_hud_rot):sub(frm.ori_hand_trs[2])
 	end
 	ImGui.SameLine()
 	if ImGui.Button("ResetInc") then
