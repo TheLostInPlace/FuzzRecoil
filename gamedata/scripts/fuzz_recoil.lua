@@ -554,20 +554,31 @@ function init_hud_adjust(wpn_sec)
 		["item_position"] = { idxa = 0, idxb = 12 },
 		["item_orientation"] = { idxa = 1, idxb = 12 },
 	}
+	local value_list = {
+		["scope_zoom_factor"] = {},
+		["gl_zoom_factor"] = {},
+		["scope_zoom_factor_alt"] = {},
+		["attach_scale"] = { def = 1 },
+	}
+	--credit: @MsPizza727
 	if MODDED_EXES_VERSION >= 20240412 then
 		offset_key_list["base_hud_offset_pos"] = { idxa = 0, idxb = 5 }
 		offset_key_list["base_hud_offset_rot"] = { idxa = 1, idxb = 5 }
+		offset_key_list["attach_base_hud_offset_pos"] = { idxa = 0, idxb = 6 }
+		offset_key_list["attach_base_hud_offset_rot"] = { idxa = 1, idxb = 6 }
+		offset_key_list["attach_mount_hud_offset_pos"] = { idxa = 0, idxb = 7 }
+		offset_key_list["attach_mount_hud_offset_rot"] = { idxa = 1, idxb = 7 }
+	else
+		offset_key_list["attach_base_hud_offset_pos"] = { idxa = 0, idxb = 6 }
+		offset_key_list["attach_base_hud_offset_rot"] = { idxa = 1, idxb = 6 }
+		offset_key_list["attach_mount_hud_offset_pos"] = { idxa = 0, idxb = 7 }
+		offset_key_list["attach_mount_hud_offset_rot"] = { idxa = 1, idxb = 7 }
 	end
 	for k, v in pairs(offset_key_list) do
 		set_hud_vector(hud, k, v)
 	end
-	local value_list = {
-		"scope_zoom_factor",
-		"gl_zoom_factor",
-		"scope_zoom_factor_alt",
-	}
-	for _, k in ipairs(value_list) do
-		local value = utils.get_float(hud, k, 0)
+	for k, v in pairs(value_list) do
+		local value = utils.get_float(hud, k, v.def or 0)
 		if value then
 			hud_adjust.set_value(k, utils.get_float(wpn_sec, k))
 		end
