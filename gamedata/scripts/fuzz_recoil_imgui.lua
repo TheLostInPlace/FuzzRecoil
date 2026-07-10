@@ -89,7 +89,6 @@ function LinePlotHack:draw(new_val)
 	ImGui.PopStyleVar()
 end
 
-local cam_angle_plot = LinePlotHack.new(300, 300, 1)
 function renderImguiWindow()
 	ImGui.SetNextWindowSize(vector2():set(800, 600), ImGuiCond.FirstUseEver)
 
@@ -176,6 +175,8 @@ function log_overlay()
 end
 AddUniqueCall(log_overlay)
 
+local cam_angle_plot = LinePlotHack.new(300, 300, 1)
+local handling_power_plot = LinePlotHack.new(300, 300, 1)
 function plot_overlay()
 	if not showPlots then
 		return
@@ -186,6 +187,11 @@ function plot_overlay()
 		ImGui.Text("cam_angle")
 		local new_val = frm.state.active and frm.state.cam_angle or nil
 		cam_angle_plot:draw(new_val)
+		if ImGui.TreeNode("handling_power") then
+			new_val = frm.state.active and frm.state.handling_power or nil
+			handling_power_plot:draw(new_val)
+			ImGui.TreePop()
+		end
 	end
 	ImGui.End()
 end
@@ -297,7 +303,7 @@ function renderProfile()
 			ImGui.SliderFloat("Handling speed", frm.wpn_profile.handling_speed, 0.1, 2.0, "%.2f")
 		if handle_speed_change then
 			frm.config.firing_handling_ease:set_speed(frm.wpn_profile.handling_speed)
-			frm.config.idle_handling_ease:set_speed(frm.wpn_profile.handling_speed * -1)
+			frm.config.idle_handling_ease:set_speed(frm.wpn_profile.handling_speed)
 		end
 		ImGui.TextColored(vector4():set(1, 0, 0, 1), "NOT IMPLEMENTED YET")
 		_, frm.wpn_profile.increase_rate =

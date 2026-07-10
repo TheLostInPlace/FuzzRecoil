@@ -51,10 +51,11 @@ config = {
 	smooth_firing = 4.5,
 	smooth_return = 10,
 
-	firing_handling_ease = utils.simple_ease:new(1, 0.2, 4),
-	idle_handling_ease = utils.simple_ease:new(-1, 0.7, 0.5, "in"),
+	firing_handling_ease = utils.simple_ease:new(1, 1, 0.2, 4),
+	idle_handling_ease = utils.simple_ease:new(-1, -1, 0.2, 6),
 
 	--NOGUI
+	sniper_idle_handling = { offset = 0.2, intensity = 0.8 },
 	pitch_expansion = 1.5,
 }
 wpn_profile = {
@@ -353,7 +354,14 @@ function init_weapon(wpn_sec)
 	-- inil some recoil paramete from here
 	state.fire_interval = 60 / wpn_info.rpm
 	config.firing_handling_ease:set_speed(wpn_profile.handling_speed)
-	config.idle_handling_ease:set_speed(wpn_profile.handling_speed * -1)
+	config.idle_handling_ease:set_speed(wpn_profile.handling_speed)
+
+	if wpn_profile.is_bolt_action then
+		config.idle_handling_ease.intensity = config.sniper_idle_handling.intensity
+		config.idle_handling_ease.offset = config.sniper_idle_handling.offset
+	else
+		config.idle_handling_ease:reset()
+	end
 
 	-- NOTE: or we can just check available firemodes?
 	-- REFT: look at this mess...
