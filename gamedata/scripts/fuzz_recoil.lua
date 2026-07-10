@@ -36,6 +36,8 @@ settings = {
 	recoil_cam_scale = 1,
 	increase_rate_scale = 1,
 	handling_speed_scale = 1,
+	--The higher the sharper, the lower the smoother (and softer)
+	cam_drag = 12,
 }
 config = {
 	max_hud_rot = vector():set(3, 3, 0),
@@ -194,7 +196,7 @@ function on_update(dt)
 
 	update_handling_power(dt)
 	if state.is_firing then
-		if debug_var.bool0 then
+		if state.should_shot_delay then
 			on_cam_update_cubic(dt)
 		else
 			on_cam_update(dt)
@@ -210,7 +212,7 @@ function on_update(dt)
 			do_hud_return_phys(dt)
 			-- reset_hud_recoil()
 		end
-		if state.is_cam_returned and state.is_hud_returned then
+		if state.is_cam_returned and state.is_hud_returned and state.handling_power <= 0 then
 			reset_recoil()
 		end
 	end
@@ -304,7 +306,7 @@ function on_cam_update(dt)
 end
 function on_cam_update_cubic(dt)
 	if state.is_firing and math.abs(state.cam_vel) > 0.01 then
-		local drag = debug_var.float_x1 * math.sqrt(math.abs(state.cam_vel))
+		local drag = settings.cam_drag * math.sqrt(math.abs(state.cam_vel))
 		state.cam_vel = state.cam_vel * math.exp(-drag * dt)
 		local step = state.cam_vel * dt
 		state.cam_angle = state.cam_angle + step
