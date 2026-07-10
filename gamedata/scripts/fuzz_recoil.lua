@@ -174,7 +174,8 @@ function on_fire()
 
 	on_fire_phys()
 
-	local cam_impulse = wpn_profile.cam_recoil_power * (1.0 - state.handling_power) * state.shot_cam_impulse_factor
+	local cam_handle_factor = math.pow(1.0 - state.handling_power, 2)
+	local cam_impulse = wpn_profile.cam_recoil_power * cam_handle_factor * state.shot_cam_impulse_factor
 	state.cam_vel = state.cam_vel + cam_impulse
 end
 function on_fire_phys()
