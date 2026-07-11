@@ -34,3 +34,12 @@ end
 function logger.clear_internal_log()
 	log_text = ""
 end
+function logger.export_internal_log()
+	local filename = string.format("../appdata/logs/fuzz_recoil_%s.log", os.time())
+	local file = io.open(filename, "w")
+	if not file then
+		logger.err("Failed to open file when exporting logs")
+	end
+	file:write(log_text)
+	file:close()
+end

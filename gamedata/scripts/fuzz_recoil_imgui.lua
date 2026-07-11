@@ -12,6 +12,7 @@ local test_cur_pos_inc = VEC_ZERO
 local test_cur_rot_inc = VEC_ZERO
 
 local showImguiWin = fuzz_dev and true or false
+local overlay_toggle = fuzz_dev and true or false
 local showProfile = fuzz_dev and true or false
 local showInfo = fuzz_dev and true or false
 local showLogs = fuzz_dev and true or false
@@ -102,10 +103,29 @@ function renderImguiWindow()
 	ImGui.End()
 end
 function renderImguiTab()
+	ImGui.SameLine()
+	if ImGui.Button("ToggleOverlays", vector2():set(100, 25)) then
+		overlay_toggle = not overlay_toggle
+		showPlots = overlay_toggle
+		showLogs = overlay_toggle
+		showInfo = overlay_toggle
+		showProfile = overlay_toggle
+	end
 	ImGui.Text(debug_text1)
 	_, showProfile = ImGui.Checkbox("Profile", showProfile)
 	ImGui.SameLine()
 	_, showInfo = ImGui.Checkbox("Info", showInfo)
+	ImGui.SameLine()
+	if ImGui.Button("Load Weapon", vector2():set(100, 25)) then
+		if frm.get_current_weapon() then
+			debug_text1 = frm.cur_wpn:section() .. ":" .. frm.state.cur_wpn_id
+		else
+			debug_text1 = "Failed to load weapon"
+		end
+	end
+	----------------
+	----------------
+	_, showPlots = ImGui.Checkbox("Histogram", showPlots)
 	ImGui.SameLine()
 	_, showLogs = ImGui.Checkbox("Logs", showLogs)
 	ImGui.SameLine()
@@ -115,14 +135,11 @@ function renderImguiTab()
 		logger.clear_internal_log()
 	end
 	ImGui.SameLine()
-	if ImGui.Button("Load Weapon", vector2():set(100, 25)) then
-		if frm.get_current_weapon() then
-			debug_text1 = frm.cur_wpn:section() .. ":" .. frm.state.cur_wpn_id
-		else
-			debug_text1 = "Failed to load weapon"
-		end
+	if ImGui.Button("Export Log", vector2():set(100, 25)) then
+		logger.export_internal_log()
 	end
-	_, showPlots = ImGui.Checkbox("Histogram", showPlots)
+	----------------
+	----------------
 	if frm.cur_wpn then
 		ImGui.TextColored(vector4():set(0, 1, 0, 1), "Weapon: " .. frm.cur_wpn:section())
 		ImGui.Separator()
@@ -184,9 +201,11 @@ function plot_overlay()
 	expanded, _ = ImGui.Begin("Histogram", true)
 	ImGui.SetNextWindowSize(vector2():set(300, 600), ImGuiCond.FirstUseEver)
 	if expanded and frm.cur_wpn then
-		ImGui.Text("cam_angle")
-		local new_val = frm.state.active and frm.state.cam_angle or nil
-		cam_angle_plot:draw(new_val)
+		if ImGui.TreeNode("cam_angle") then
+			local new_val = frm.state.active and frm.state.cam_angle or nil
+			cam_angle_plot:draw(new_val)
+			ImGui.TreePop()
+		end
 		if ImGui.TreeNode("handling_power") then
 			new_val = frm.state.active and frm.state.handling_power or nil
 			handling_power_plot:draw(new_val)
