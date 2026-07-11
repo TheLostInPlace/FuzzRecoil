@@ -1,6 +1,6 @@
 -- overwrite vector operators
 fuzz_utils = {}
-local logger = logger or fuzz_recoil_logger.logger
+local logger = fuzz_recoil_logger
 local frm = fuzz_recoil
 --NOTE: this could slow down the whole game,i'll have to do the refator
 --i just left a code here to remind me this is a bad idea
