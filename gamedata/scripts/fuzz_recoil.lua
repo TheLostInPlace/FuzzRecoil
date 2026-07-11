@@ -49,6 +49,11 @@ settings = {
 	--The higher the sharper, the lower the smoother (and softer)
 	cam_drag = 12,
 	bolt_action_Y_lift = true,
+
+	--vanilla data extras, off keeps stock feel
+	use_pitch_frac = false,
+	use_cam_max_angle = false,
+	use_addon_ammo_koefs = false,
 }
 config = {
 	max_hud_rot = vector():set(3, 3, 0),
@@ -104,12 +109,13 @@ state = {
 	cam_vel = 0.0,
 
 	is_hud_returned = false,
-	vel_hud_pos = VEC_ZERO,
-	vel_hud_rot = VEC_ZERO,
-	hud_pos_raw = VEC_ZERO,
-	hud_rot_raw = VEC_ZERO,
-	hud_pos_smooth = VEC_ZERO,
-	hud_rot_smooth = VEC_ZERO,
+	--own instances, VEC_ZERO is one shared global and these get mutated in place
+	vel_hud_pos = vector():set(0, 0, 0),
+	vel_hud_rot = vector():set(0, 0, 0),
+	hud_pos_raw = vector():set(0, 0, 0),
+	hud_rot_raw = vector():set(0, 0, 0),
+	hud_pos_smooth = vector():set(0, 0, 0),
+	hud_rot_smooth = vector():set(0, 0, 0),
 	-- cur_aim_state = 0
 	--no need to reset
 	cur_wpn_id = 0,
@@ -128,11 +134,11 @@ local shot_delay_table = {
 }
 
 ori_hand_trs = {
-	VEC_ZERO,
-	VEC_ZERO,
+	vector():set(0, 0, 0),
+	vector():set(0, 0, 0),
 }
-cur_hud_pos = VEC_ZERO
-cur_hud_rot = VEC_ZERO
+cur_hud_pos = vector():set(0, 0, 0)
+cur_hud_rot = vector():set(0, 0, 0)
 sim_firing = false
 sim_timer = 0.0
 debug_var = {
@@ -175,10 +181,12 @@ function on_fire()
 		init_recoil()
 	end
 	if state.should_shot_delay then
+		--create is a no op while one is pending, reset makes the delay count from the last shot
 		CreateTimeEvent("fuzz_recoil", "bolt_delay_stop", state.shot_delay_time, function()
 			on_fire_stop()
 			return true
 		end)
+		ResetTimeEvent("fuzz_recoil", "bolt_delay_stop", state.shot_delay_time)
 	end
 	logger.dbg("Shot ")
 
@@ -193,7 +201,7 @@ function on_fire()
 
 	local cam_handle_factor = math.pow(1.0 - state.handling_power, 2)
 	--vanilla dispersion_frac as mean preserving per shot variance
-	local frac_factor = 1 + (math.random() * 2 - 1) * (1 - wpn_profile.pitch_frac)
+	local frac_factor = settings.use_pitch_frac and (1 + (math.random() * 2 - 1) * (1 - wpn_profile.pitch_frac)) or 1
 	local cam_impulse = wpn_profile.cam_recoil_power
 		* cam_handle_factor
 		* state.shot_cam_impulse_factor
@@ -349,6 +357,9 @@ function on_cam_update_cubic(dt)
 end
 --vanilla cam_max_angle cap, 0 disables
 function clamp_cam_angle()
+	if not settings.use_cam_max_angle then
+		return
+	end
 	if wpn_profile.cam_max_angle > 0 and state.cam_angle > wpn_profile.cam_max_angle then
 		state.cam_angle = wpn_profile.cam_max_angle
 	end
@@ -420,7 +431,7 @@ function init_recoil()
 	if not level.check_cam_effector(CAM_FX_ID) then
 		level.add_cam_effector("camera_effects\\onerad.anm", 7897, true, "", 0, true, 0.0001)
 	end
-	RemoveTimeEvent("fuzz_recoil", "bolt_delay")
+	RemoveTimeEvent("fuzz_recoil", "bolt_delay_stop")
 	logger.dbg("Initialize Recoil")
 end
 
@@ -434,13 +445,13 @@ function reset_hud_recoil()
 	logger.dbg("reset hud recoil")
 	state.is_hud_returned = true
 
-	state.vel_hud_rot = VEC_ZERO
-	state.vel_hud_pos = VEC_ZERO
+	state.vel_hud_rot = vector():set(0, 0, 0)
+	state.vel_hud_pos = vector():set(0, 0, 0)
 
-	state.hud_pos_raw = VEC_ZERO
-	state.hud_pos_smooth = VEC_ZERO
-	state.hud_rot_raw = VEC_ZERO
-	state.hud_rot_smooth = VEC_ZERO
+	state.hud_pos_raw = vector():set(0, 0, 0)
+	state.hud_pos_smooth = vector():set(0, 0, 0)
+	state.hud_rot_raw = vector():set(0, 0, 0)
+	state.hud_rot_smooth = vector():set(0, 0, 0)
 
 	reset_hud_hand()
 end
@@ -453,7 +464,7 @@ function reset_recoil()
 	if level.check_cam_effector(CAM_FX_ID) then
 		level.remove_cam_effector(7897)
 	end
-	RemoveTimeEvent("fuzz_recoil", "bolt_delay")
+	RemoveTimeEvent("fuzz_recoil", "bolt_delay_stop")
 
 	logger.dbg("reset recoil")
 end
@@ -575,6 +586,11 @@ local function get_addon_koef(sec, key)
 end
 --NOTE: engine multiplies cam recoil by attached addon section koefs (EffectorShot.cpp)
 function collect_addon_koefs()
+	if not settings.use_addon_ammo_koefs then
+		wpn_info.addon_cam_k = 1
+		wpn_info.addon_cam_inc_k = 1
+		return
+	end
 	local cam_k, cam_inc_k = 1, 1
 	local addons = {
 		{ cur_cast_wpn:IsSilencerAttached(), cur_cast_wpn:GetSilencerName() },
@@ -606,7 +622,7 @@ function get_ammo_cam_k()
 end
 --refresh per shot so addon attach and ammo switch apply without a weapon re draw
 function update_shot_cam_k()
-	if not cur_cast_wpn then
+	if not cur_cast_wpn or not settings.use_addon_ammo_koefs then
 		state.shot_cam_k = 1
 		return
 	end
@@ -724,12 +740,6 @@ function init_hud_adjust(wpn_sec)
 		["item_position"] = { idxa = 0, idxb = 12 },
 		["item_orientation"] = { idxa = 1, idxb = 12 },
 	}
-	local value_list = {
-		["scope_zoom_factor"] = {},
-		["gl_zoom_factor"] = {},
-		["scope_zoom_factor_alt"] = {},
-		["attach_scale"] = { def = 1 },
-	}
 	--credit: @MsPizza727
 	if MODDED_EXES_VERSION >= 20240412 then
 		offset_key_list["base_hud_offset_pos"] = { idxa = 0, idxb = 5 }
@@ -747,12 +757,18 @@ function init_hud_adjust(wpn_sec)
 	for k, v in pairs(offset_key_list) do
 		set_hud_vector(hud, k, v)
 	end
-	for k, v in pairs(value_list) do
-		local value = utils.get_float(hud, k, v.def or 0)
-		if value then
-			hud_adjust.set_value(k, utils.get_float(wpn_sec, k))
+	--engine reads these while adjust mode is on (UpdateZoomParams), mirror its sources
+	--attach_scale dropped, hud_adjust.set_value silently ignores that key
+	local scope_zoom = utils.get_float(wpn_sec, "scope_zoom_factor")
+	if cur_cast_wpn and cur_cast_wpn:IsScopeAttached() then
+		local scope_sec = cur_cast_wpn:GetScopeName()
+		if scope_sec and scope_sec ~= "" then
+			scope_zoom = utils.get_float(scope_sec, "scope_zoom_factor", scope_zoom)
 		end
 	end
+	hud_adjust.set_value("scope_zoom_factor", scope_zoom)
+	hud_adjust.set_value("gl_zoom_factor", utils.get_float(wpn_sec, "gl_zoom_factor"))
+	hud_adjust.set_value("scope_zoom_factor_alt", utils.get_float(wpn_sec, "scope_zoom_factor_alt"))
 	hud_adjust.enabled(false)
 end
 local function get_aim_state()
@@ -798,7 +814,9 @@ function apply_spring_vec_with_decay(raw_vec, vel_vec, dt, spring, damping)
 	--TODO: switch to solution
 	dt = math.min(dt, 1 / 30)
 	local damping_factor = math.max(0, 1 - damping * dt)
-	vel_vec:sub(vector():set(raw_vec):mul(spring:mul(dt))):mul(damping_factor)
+	--mul mutates, scale a copy so the callers spring vector survives the call
+	local spring_dt = vector():set(spring):mul(dt)
+	vel_vec:sub(vector():set(raw_vec):mul(spring_dt)):mul(damping_factor)
 	raw_vec:add(vector():set(vel_vec):mul(dt))
 end
 

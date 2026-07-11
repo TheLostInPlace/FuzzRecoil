@@ -8,8 +8,9 @@ local cvter = converter or fuzz_recoil_converter.converter
 -- local log_text = frm.log_text
 -- l
 
-local test_cur_pos_inc = VEC_ZERO
-local test_cur_rot_inc = VEC_ZERO
+--own instances, sliders write fields in place and must not touch the shared VEC_ZERO
+local test_cur_pos_inc = vector():set(0, 0, 0)
+local test_cur_rot_inc = vector():set(0, 0, 0)
 
 local showImguiWin = fuzz_dev and true or false
 local showProfile = fuzz_dev and true or false
@@ -349,6 +350,13 @@ function renderConfig()
 		_, frm.config.return_damping = ImGui.SliderFloat("Return Damping", frm.config.return_damping, 0.1, 16.0, "%.2f")
 		ImGui.Text("Settings")
 		_, frm.settings.cam_drag = ImGui.SliderFloat("Cam Drag", frm.settings.cam_drag, 5.0, 20.0, "%.2f")
+		ImGui.Text("Vanilla data extras (default off)")
+		_, frm.settings.use_pitch_frac =
+			ImGui.Checkbox("Pitch variance (cam_dispersion_frac)", frm.settings.use_pitch_frac)
+		_, frm.settings.use_cam_max_angle =
+			ImGui.Checkbox("Cam climb cap (cam_max_angle)", frm.settings.use_cam_max_angle)
+		_, frm.settings.use_addon_ammo_koefs =
+			ImGui.Checkbox("Addon and ammo recoil koefs", frm.settings.use_addon_ammo_koefs)
 		ImGui.TextColored(vector4():set(1, 0, 0, 1), "NOT IMPLEMENTED YET")
 		_, frm.settings.recoil_v_scale =
 			ImGui.SliderFloat("Recoil scale(Vert)", frm.settings.recoil_v_scale, 0.1, 2.0, "%.2f")

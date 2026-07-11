@@ -84,7 +84,12 @@ function fuzz_utils.get_string(sec, param, def)
 	return SYS_GetParam(0, sec, param, def ~= nil and def or "")
 end
 function fuzz_utils.get_bool(sec, param, def)
-	return SYS_GetParam(1, sec, param, def ~= nil and def or false)
+	--SYS_GetParam drops the caller def for bools and returns nil on missing keys
+	local v = SYS_GetParam(1, sec, param)
+	if v == nil then
+		return def or false
+	end
+	return v
 end
 function fuzz_utils.get_float(sec, param, def)
 	return SYS_GetParam(2, sec, param, def ~= nil and def or 0.0)
