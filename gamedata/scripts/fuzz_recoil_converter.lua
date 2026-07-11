@@ -5,6 +5,8 @@ local wpn_profile_def = {
 	is_bolt_action = false,
 	cam_recoil_power = 4,
 	cam_return_speed = 1,
+	cam_max_angle = 0,
+	pitch_frac = 1,
 
 	shot_pitch = 15,
 	shot_pos_y = -0.04,
@@ -26,6 +28,8 @@ local wpn_info_def = {
 	zoom_cam_dispersion_inc = 0,
 	cam_step_angle_horz = 0,
 	cam_relax_speed = 0,
+	addon_cam_k = 1,
+	addon_cam_inc_k = 1,
 	inv_weight = 0,
 	rpm = 600,
 }
@@ -47,6 +51,10 @@ converter.rule = {
 converter.convert = function(op, np)
 	-- op = wpn_info
 	-- np = wpn_profile
+	--cam side addon koef is applied per shot at runtime (state.shot_cam_k)
+	--inc koef stays here, it feeds nonlinear handling lerps
+	local cam_disp_inc = op.cam_dispersion_inc * (op.addon_cam_inc_k or 1)
+
 	np.cam_recoil_power = op.cam_dispersion
 	np.cam_return_speed = op.cam_relax_speed
 
@@ -55,11 +63,15 @@ converter.convert = function(op, np)
 	np.shot_yaw = op.cam_step_angle_horz
 	np.shot_pos_x = op.cam_step_angle_horz
 
-	np.pull_force = op.cam_dispersion_inc
-	np.handling_speed = op.cam_dispersion_inc
+	np.pull_force = cam_disp_inc
+	np.handling_speed = cam_disp_inc
 	apply_rules(np, converter.rule)
 	np.firing_damping = 1
 	np.is_bolt_action = is_bolt_action(op)
+
+	--cam_angle is radians, ini cam_max_angle is degrees
+	np.cam_max_angle = op.cam_max_angle > 0 and math.rad(op.cam_max_angle) or 0
+	np.pitch_frac = utils.math_clamp(op.cam_dispersion_frac or 1, 0, 1)
 
 	np.shot_yaw = np.shot_pitch + np.shot_yaw
 

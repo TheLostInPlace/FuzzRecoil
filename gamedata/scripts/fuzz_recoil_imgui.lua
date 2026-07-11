@@ -270,6 +270,7 @@ function info_overlay()
 		ImGui.TextColored(vector4():set(0, 1, 0.5, 1), "Camera recoil")
 		ImGui.Text(string.format("Cam pitch: %.3f", frm.state.cam_angle))
 		ImGui.Text(string.format("Cam velocity: %.3f", frm.state.cam_vel))
+		ImGui.Text(string.format("Shot cam k (addon x ammo): %.3f", frm.state.shot_cam_k))
 		-- cam_total_up
 	end
 	ImGui.End()
@@ -284,6 +285,9 @@ function renderProfile()
 			ImGui.SliderFloat("Cam Recoil Power", frm.wpn_profile.cam_recoil_power, 0.1, 16.0, "%.2f")
 		_, frm.wpn_profile.cam_return_speed =
 			ImGui.SliderFloat("Cam Return Speed", frm.wpn_profile.cam_return_speed, 0.5, 2, "%.2f")
+		_, frm.wpn_profile.cam_max_angle =
+			ImGui.SliderFloat("Cam Max Angle", frm.wpn_profile.cam_max_angle, 0, 1, "%.3frad")
+		_, frm.wpn_profile.pitch_frac = ImGui.SliderFloat("Pitch Frac", frm.wpn_profile.pitch_frac, 0, 1, "%.2f")
 
 		ImGui.Text("Shot Impact")
 		_, frm.wpn_profile.shot_pitch = ImGui.SliderFloat("Pitch", frm.wpn_profile.shot_pitch, 0, 60, "%.2f")

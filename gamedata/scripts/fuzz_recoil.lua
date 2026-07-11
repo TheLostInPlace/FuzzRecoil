@@ -20,10 +20,20 @@ local allowed_kinds = {
 wpn_info = {
 	cam_dispersion = 0,
 	cam_dispersion_inc = 0,
-	zoom_cam_dispersion = 0,
-	zoom_cam_dispersion_inc = 0,
+	cam_dispersion_frac = 0.7,
+	cam_max_angle = 0,
+	cam_max_angle_horz = 0,
 	cam_step_angle_horz = 0,
 	cam_relax_speed = 0,
+	zoom_cam_dispersion = 0,
+	zoom_cam_dispersion_inc = 0,
+	zoom_cam_dispersion_frac = 0.7,
+	zoom_cam_max_angle = 0,
+	zoom_cam_max_angle_horz = 0,
+	zoom_cam_step_angle_horz = 0,
+	zoom_cam_relax_speed = 0,
+	addon_cam_k = 1,
+	addon_cam_inc_k = 1,
 	inv_weight = 0,
 	rpm = 600,
 }
@@ -62,6 +72,10 @@ wpn_profile = {
 	is_bolt_action = false,
 	cam_recoil_power = 4,
 	cam_return_speed = 1,
+	--0 means uncapped, radians like cam_angle
+	cam_max_angle = 0,
+	--1 means no per shot variance
+	pitch_frac = 1,
 	--TODO:
 	--zoom_scale_ratio
 
@@ -104,6 +118,8 @@ state = {
 	should_shot_delay = false,
 	shot_delay_time = 0.4,
 	shot_cam_impulse_factor = 0.2,
+	--addon koefs x ammo k_cam_dispersion, refreshed per shot
+	shot_cam_k = 1,
 }
 local shot_delay_table = {
 	w_sniper = { rpm = 60, cam_impulse = 1 },
@@ -172,15 +188,23 @@ function on_fire()
 
 	-- local inertia_modifier = 1.0 / (1.0 + (wpn_profile.mass_inertia * 0.1))
 
+	update_shot_cam_k()
 	on_fire_phys()
 
 	local cam_handle_factor = math.pow(1.0 - state.handling_power, 2)
-	local cam_impulse = wpn_profile.cam_recoil_power * cam_handle_factor * state.shot_cam_impulse_factor
+	--vanilla dispersion_frac as mean preserving per shot variance
+	local frac_factor = 1 + (math.random() * 2 - 1) * (1 - wpn_profile.pitch_frac)
+	local cam_impulse = wpn_profile.cam_recoil_power
+		* cam_handle_factor
+		* state.shot_cam_impulse_factor
+		* frac_factor
+		* state.shot_cam_k
 	state.cam_vel = state.cam_vel + cam_impulse
 end
 function on_fire_phys()
-	state.vel_hud_rot.y = state.vel_hud_rot.y + wpn_profile.shot_pitch
-	state.vel_hud_pos.y = state.vel_hud_pos.y + wpn_profile.shot_pos_y
+	--shot_cam_k scales the cam_dispersion derived axes only
+	state.vel_hud_rot.y = state.vel_hud_rot.y + wpn_profile.shot_pitch * state.shot_cam_k
+	state.vel_hud_pos.y = state.vel_hud_pos.y + wpn_profile.shot_pos_y * state.shot_cam_k
 
 	local yaw_impulse = (math.random() * 2 - 1) * wpn_profile.shot_yaw
 	state.vel_hud_rot.x = state.vel_hud_rot.x + yaw_impulse
@@ -309,6 +333,7 @@ function on_cam_update(dt)
 		local step = state.cam_vel * (1 - decay) / debug_var.float_x2
 		state.cam_vel = state.cam_vel * decay
 		state.cam_angle = state.cam_angle + step
+		clamp_cam_angle()
 		set_player_angle(state.cam_angle)
 	end
 end
@@ -318,7 +343,14 @@ function on_cam_update_cubic(dt)
 		state.cam_vel = state.cam_vel * math.exp(-drag * dt)
 		local step = state.cam_vel * dt
 		state.cam_angle = state.cam_angle + step
+		clamp_cam_angle()
 		set_player_angle(state.cam_angle)
+	end
+end
+--vanilla cam_max_angle cap, 0 disables
+function clamp_cam_angle()
+	if wpn_profile.cam_max_angle > 0 and state.cam_angle > wpn_profile.cam_max_angle then
+		state.cam_angle = wpn_profile.cam_max_angle
 	end
 end
 function on_cam_update_spring(dt)
@@ -534,25 +566,93 @@ end
 --NOTE:this is safer,cause we are changing cam_recoil
 --NOTE: engine getters return the live post-upgrade values in radians,
 --converter rules are tuned to ini degrees, so convert back with math.deg
+--engine clamps addon koefs to [0.01, 2.0], empty section means koef 1 like engine reset
+local function get_addon_koef(sec, key)
+	if not sec or sec == "" then
+		return 1
+	end
+	return utils.math_clamp(utils.get_float(sec, key, 1), 0.01, 2.0)
+end
+--NOTE: engine multiplies cam recoil by attached addon section koefs (EffectorShot.cpp)
+function collect_addon_koefs()
+	local cam_k, cam_inc_k = 1, 1
+	local addons = {
+		{ cur_cast_wpn:IsSilencerAttached(), cur_cast_wpn:GetSilencerName() },
+		{ cur_cast_wpn:IsScopeAttached(), cur_cast_wpn:GetScopeName() },
+		{ cur_cast_wpn:IsGrenadeLauncherAttached(), cur_cast_wpn:GetGrenadeLauncherName() },
+	}
+	for _, addon in ipairs(addons) do
+		if addon[1] then
+			cam_k = cam_k * get_addon_koef(addon[2], "cam_dispersion_k")
+			cam_inc_k = cam_inc_k * get_addon_koef(addon[2], "cam_dispersion_inc_k")
+		end
+	end
+	wpn_info.addon_cam_k = cam_k
+	wpn_info.addon_cam_inc_k = cam_inc_k
+end
+--k_cam_dispersion of the selected ammo type, default 1 unclamped like engine
+--NOTE: engine uses the chambered round, no lua export, selected type is the best approximation
+function get_ammo_cam_k()
+	local cur_type = cur_cast_wpn:GetAmmoType()
+	local ammo_k = 1
+	cur_cast_wpn:AmmoTypeForEach(function(i, sec)
+		if i == cur_type then
+			ammo_k = utils.get_float(sec, "k_cam_dispersion", 1)
+			return true
+		end
+		return false
+	end)
+	return ammo_k
+end
+--refresh per shot so addon attach and ammo switch apply without a weapon re draw
+function update_shot_cam_k()
+	if not cur_cast_wpn then
+		state.shot_cam_k = 1
+		return
+	end
+	collect_addon_koefs()
+	state.shot_cam_k = wpn_info.addon_cam_k * get_ammo_cam_k()
+end
 function collect_wpn_info(wpn_sec)
 	wpn_info.kind = utils.get_string(wpn_sec, "kind")
 	if cur_cast_wpn then
+		--NOTE: dispersion_frac is a unitless fraction, no deg conversion
 		wpn_info.cam_dispersion = math.deg(cur_cast_wpn:GetCamDispersion())
 		wpn_info.cam_dispersion_inc = math.deg(cur_cast_wpn:GetCamDispersionInc())
-		wpn_info.zoom_cam_dispersion = math.deg(cur_cast_wpn:GetZoomCamDispersion())
-		wpn_info.zoom_cam_dispersion_inc = math.deg(cur_cast_wpn:GetZoomCamDispersionInc())
+		wpn_info.cam_dispersion_frac = cur_cast_wpn:GetCamDispersionFrac()
+		wpn_info.cam_max_angle = math.deg(cur_cast_wpn:GetCamMaxAngleVert())
+		wpn_info.cam_max_angle_horz = math.deg(cur_cast_wpn:GetCamMaxAngleHorz())
 		wpn_info.cam_step_angle_horz = math.deg(cur_cast_wpn:GetCamStepAngleHorz())
 		wpn_info.cam_relax_speed = math.deg(cur_cast_wpn:GetCamRelaxSpeed())
+		wpn_info.zoom_cam_dispersion = math.deg(cur_cast_wpn:GetZoomCamDispersion())
+		wpn_info.zoom_cam_dispersion_inc = math.deg(cur_cast_wpn:GetZoomCamDispersionInc())
+		wpn_info.zoom_cam_dispersion_frac = cur_cast_wpn:GetZoomCamDispersionFrac()
+		wpn_info.zoom_cam_max_angle = math.deg(cur_cast_wpn:GetZoomCamMaxAngleVert())
+		wpn_info.zoom_cam_max_angle_horz = math.deg(cur_cast_wpn:GetZoomCamMaxAngleHorz())
+		wpn_info.zoom_cam_step_angle_horz = math.deg(cur_cast_wpn:GetZoomCamStepAngleHorz())
+		wpn_info.zoom_cam_relax_speed = math.deg(cur_cast_wpn:GetZoomCamRelaxSpeed())
 		wpn_info.rpm = cur_cast_wpn:RealRPM()
+		collect_addon_koefs()
 	else
 		--fallback: base section values, no upgrades
 		wpn_info.cam_dispersion = utils.get_float(wpn_sec, "cam_dispersion")
 		wpn_info.cam_dispersion_inc = utils.get_float(wpn_sec, "cam_dispersion_inc")
-		wpn_info.zoom_cam_dispersion = utils.get_float(wpn_sec, "zoom_cam_dispersion")
-		wpn_info.zoom_cam_dispersion_inc = utils.get_float(wpn_sec, "zoom_cam_dispersion_inc")
+		wpn_info.cam_dispersion_frac = utils.get_float(wpn_sec, "cam_dispersion_frac", 0.7)
+		wpn_info.cam_max_angle = utils.get_float(wpn_sec, "cam_max_angle")
+		wpn_info.cam_max_angle_horz = utils.get_float(wpn_sec, "cam_max_angle_horz")
 		wpn_info.cam_step_angle_horz = utils.get_float(wpn_sec, "cam_step_angle_horz")
 		wpn_info.cam_relax_speed = utils.get_float(wpn_sec, "cam_relax_speed")
+		--NOTE: engine copies hip values to zoom when the ini omits the zoom keys
+		wpn_info.zoom_cam_dispersion = utils.get_float(wpn_sec, "zoom_cam_dispersion", wpn_info.cam_dispersion)
+		wpn_info.zoom_cam_dispersion_inc = utils.get_float(wpn_sec, "zoom_cam_dispersion_inc", wpn_info.cam_dispersion_inc)
+		wpn_info.zoom_cam_dispersion_frac = utils.get_float(wpn_sec, "zoom_cam_dispersion_frac", wpn_info.cam_dispersion_frac)
+		wpn_info.zoom_cam_max_angle = utils.get_float(wpn_sec, "zoom_cam_max_angle", wpn_info.cam_max_angle)
+		wpn_info.zoom_cam_max_angle_horz = utils.get_float(wpn_sec, "zoom_cam_max_angle_horz", wpn_info.cam_max_angle_horz)
+		wpn_info.zoom_cam_step_angle_horz = utils.get_float(wpn_sec, "zoom_cam_step_angle_horz", wpn_info.cam_step_angle_horz)
+		wpn_info.zoom_cam_relax_speed = utils.get_float(wpn_sec, "zoom_cam_relax_speed", wpn_info.cam_relax_speed)
 		wpn_info.rpm = utils.get_float(wpn_sec, "rpm", 600)
+		wpn_info.addon_cam_k = 1
+		wpn_info.addon_cam_inc_k = 1
 	end
 	wpn_info.inv_weight = utils.get_float(wpn_sec, "inv_weight", 3)
 	try_get_recoil_profile(wpn_sec)
@@ -563,6 +663,8 @@ function try_get_recoil_profile(wpn_sec)
 		wpn_profile.is_bolt_action = utils.get_bool(profile, "is_bolt_action", false)
 		wpn_profile.cam_recoil_power = utils.get_float(profile, "cam_recoil_power", 4)
 		wpn_profile.cam_return_speed = utils.get_float(profile, "cam_return_speed", 1)
+		wpn_profile.cam_max_angle = utils.get_float(profile, "cam_max_angle", 0)
+		wpn_profile.pitch_frac = utils.math_clamp(utils.get_float(profile, "pitch_frac", 1), 0, 1)
 
 		wpn_profile.shot_pitch = utils.get_float(profile, "shot_pitch", 15)
 		wpn_profile.shot_pos_y = utils.get_float(profile, "shot_pos_y", -0.04)
