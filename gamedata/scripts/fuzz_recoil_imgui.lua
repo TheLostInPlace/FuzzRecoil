@@ -148,10 +148,19 @@ function renderImguiTab()
 		end
 	end
 end
+--NOTE: all windows must draw inside imgui_on_render (main thread, open frame)
+--raw AddUniqueCall drawing races the render thread when mt_level_call is on
 ImGui.Groups.Main.Widget(function()
 	if showImguiWin then
 		renderImguiWindow()
 	end
+end)
+--overlays stay visible during gameplay, Unique group renders every frame
+ImGui.Groups.Unique.Widget(function()
+	log_overlay()
+	plot_overlay()
+	profile_overlay()
+	info_overlay()
 end)
 ImGui.Groups.Mods.Widget(function()
 	_, showImguiWin = ImGui.MenuItem("FuzzRecoil", nil, showImguiWin, true)
@@ -159,10 +168,10 @@ end)
 
 -- Force scroll if the user was already at the bottom, or if a new item triggered a scroll
 function log_overlay()
-	ImGui.SetNextWindowSize(vector2():set(400, 200), ImGuiCond.FirstUseEver)
 	if not showLogs then
 		return
 	end
+	ImGui.SetNextWindowSize(vector2():set(400, 200), ImGuiCond.FirstUseEver)
 	expanded, _ = ImGui.Begin("Recoil Log", true)
 	if expanded and frm.cur_wpn then
 		-- Force scroll if the user was already at the bottom, or if a new item triggered a scroll
@@ -173,7 +182,6 @@ function log_overlay()
 	end
 	ImGui.End()
 end
-AddUniqueCall(log_overlay)
 
 local cam_angle_plot = LinePlotHack.new(300, 300, 1)
 local handling_power_plot = LinePlotHack.new(300, 300, 1)
@@ -181,8 +189,8 @@ function plot_overlay()
 	if not showPlots then
 		return
 	end
-	expanded, _ = ImGui.Begin("Histogram", true)
 	ImGui.SetNextWindowSize(vector2():set(300, 600), ImGuiCond.FirstUseEver)
+	expanded, _ = ImGui.Begin("Histogram", true)
 	if expanded and frm.cur_wpn then
 		ImGui.Text("cam_angle")
 		local new_val = frm.state.active and frm.state.cam_angle or nil
@@ -195,13 +203,12 @@ function plot_overlay()
 	end
 	ImGui.End()
 end
-AddUniqueCall(plot_overlay)
 
 function profile_overlay()
-	ImGui.SetNextWindowSize(vector2():set(400, 600), ImGuiCond.FirstUseEver)
 	if not showProfile then
 		return
 	end
+	ImGui.SetNextWindowSize(vector2():set(400, 600), ImGuiCond.FirstUseEver)
 	local function text_drawer(label, val)
 		if type(val) == "number" then
 			ImGui.Text(string.format("%s:%.5f", label, val))
@@ -223,13 +230,12 @@ function profile_overlay()
 	end
 	ImGui.End()
 end
-AddUniqueCall(profile_overlay)
 
 function info_overlay()
-	ImGui.SetNextWindowSize(vector2():set(400, 600), ImGuiCond.FirstUseEver)
 	if not showInfo then
 		return
 	end
+	ImGui.SetNextWindowSize(vector2():set(400, 600), ImGuiCond.FirstUseEver)
 	expanded, _ = ImGui.Begin("Recoil Info", true)
 	if expanded and frm.cur_wpn then
 		ImGui.Separator()
@@ -275,7 +281,6 @@ function info_overlay()
 	end
 	ImGui.End()
 end
-AddUniqueCall(info_overlay)
 
 function renderProfile()
 	if ImGui.TreeNode("Weapon profile") then

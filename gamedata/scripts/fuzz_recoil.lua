@@ -527,12 +527,12 @@ function set_vanilla_cam_recoil(cast_wpn, cam_disp, cam_disp_inc, zoom_cam_disp,
 	cast_wpn:SetZoomCamDispersionInc(zoom_cam_dis_inc)
 end
 
+--no op until init_recoil adds the effector, resets before init are silent
 function set_player_angle(angle)
-	if not player then
-		logger.err("player not found")
+	if not level.check_cam_effector(CAM_FX_ID) then
 		return
 	end
-	level.set_cam_effector_factor(7897, math.max(0.0001, math.min(angle, 0.999)))
+	level.set_cam_effector_factor(CAM_FX_ID, math.max(0.0001, math.min(angle, 0.999)))
 end
 
 function enable_hud_adjust()
