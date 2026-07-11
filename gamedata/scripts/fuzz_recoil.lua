@@ -72,14 +72,15 @@ config = {
 	v2_kick_feedforward = 0.65,
 	--per shot kick variance, plateau jitter scales with handling so the peak needs work
 	v2_pitch_jitter = 0.16,
-	v2_plateau_jitter = 0.35,
+	v2_plateau_jitter = 0.18,
 	--aim point wander with momentum, the recovery does NOT pull it back
 	--each burst rolls its own travel direction, velocity capped so its trackable
-	v2_wander = 0.22,
+	--aggregate study winner, spread comes from confident travel not shakiness
+	v2_wander = 0.18,
 	v2_wander_vel = 0.42,
-	v2_burst_kick = 0.26,
+	v2_burst_kick = 0.32,
 	v2_wander_damp = 0.9,
-	v2_wander_max = 1.9,
+	v2_wander_max = 1.5,
 	v2_wander_decay = 0.25,
 	--ads uses vanilla zoom ratio, hip fire kicks harder and wanders more
 	ads_kick_mul = 1.0,
@@ -100,7 +101,7 @@ config = {
 		lmg = { grace = 12, rate = 0.05 },
 		other = { grace = 6, rate = 0.06 },
 	},
-	v2_heat_max = 2.2,
+	v2_heat_max = 1.6,
 	--recovery rate, base plus handling driven convergence
 	v2_recover_base = 1.2,
 	v2_recover_gain = 3.0,
