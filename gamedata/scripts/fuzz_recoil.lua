@@ -5,7 +5,6 @@ local utils = fuzz_recoil_utils
 local cvter = fuzz_recoil_converter
 local logger = fuzz_recoil_logger
 ---
-CAM_FX_ID = 7897
 cur_wpn = nil
 cur_cast_wpn = nil
 local player = nil
@@ -127,7 +126,7 @@ debug_var = {
 	float_x2 = 0,
 }
 
-local camrc = fuzz_recoil_cam:new()
+local camrc = fuzz_recoil_cam_recoil:new()
 
 function on_game_start()
 	RegisterScriptCallback("actor_on_update", actor_on_update)
@@ -212,7 +211,7 @@ function on_update(dt)
 			-- reset_hud_recoil()
 		end
 		local cam_returned = camrc:update(dt, state.is_firing)
-		if state.handling_power and state.is_hud_returned and cam_returned then
+		if state.handling_power <= 0 and state.is_hud_returned and cam_returned then
 			reset_recoil()
 		end
 	end
@@ -245,7 +244,7 @@ function update_sim_shooting(dt)
 end
 --TODO: we should desync it
 function pos_y_sync_with_cam()
-	if wpn_profile.shot_dealy_enable then
+	if settings.bolt_action_Y_lift and wpn_profile.shot_dealy_enable then
 		--PERF: should cached once code is stablelized
 		y_impulse = wpn_profile.is_bolt_action and math.abs(wpn_profile.shot_pos_y) * 2 or wpn_profile.shot_pos_y
 		state.hud_pos_raw.y = camrc.angle * y_impulse
@@ -315,7 +314,7 @@ function init_weapon(wpn_sec)
 		wpn_profile.shot_cam_impulse_factor = skind.cam_impulse
 	end
 
-	camrc:init(wpn_profile.cam_return_speed, wpn_profile.shot_delay_time and "cubic" or "exp")
+	camrc:init(wpn_profile.cam_return_speed, wpn_profile.shot_dealy_enable and "cubic" or "exp")
 
 	logger.dbg("Initialize weapon")
 end
@@ -348,10 +347,8 @@ function reset_recoil()
 	state.handling_power = 0
 
 	disable_hud_adjust()
-	if level.check_cam_effector(CAM_FX_ID) then
-		level.remove_cam_effector(7897)
-	end
 	RemoveTimeEvent("fuzz_recoil", "bolt_delay")
+	camrc.remove_cam_fx()
 
 	logger.dbg("reset recoil")
 end
