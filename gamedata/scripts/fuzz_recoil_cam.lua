@@ -1,7 +1,7 @@
 local m_settings = settings or fuzz_recoil.settings
 local m_cfg = config or fuzz_recoil.config
 local utils = fuzz_utils or fuzz_recoil_utils.fuzz_utils
-local logger = logger or fuzz_recoil_logger.logger
+local logger = fuzz_recoil_logger
 
 local CAM_FX_ID = 7897
 local function create_cam_effector()

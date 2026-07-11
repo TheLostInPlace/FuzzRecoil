@@ -3,7 +3,7 @@ fuzz_recoil = { version = "a4" }
 ----Imports
 local utils = fuzz_utils or fuzz_recoil_utils.fuzz_utils
 local cvter = converter or fuzz_recoil_converter.converter
-local logger = logger or fuzz_recoil_logger.logger
+local logger = fuzz_recoil_logger
 ---
 CAM_FX_ID = 7897
 cur_wpn = nil

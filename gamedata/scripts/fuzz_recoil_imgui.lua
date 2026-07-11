@@ -1,7 +1,7 @@
 --FIXME: this namesacpe is bad for refactor
 local frm = fuzz_recoil -- or require("scripts.fuzz_recoil")
 local utils = fuzz_utils or fuzz_recoil_utils.fuzz_utils
-local logger = logger or fuzz_recoil_logger.logger
+local logger = fuzz_recoil_logger
 local cvter = converter or fuzz_recoil_converter.converter
 local camrc = fuzz_recoil_cam.instance
 --stylua: ignore start
