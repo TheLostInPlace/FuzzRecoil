@@ -72,6 +72,8 @@ converter.convert = function(op, np)
 	--cam_angle is radians, ini cam_max_angle is degrees
 	np.cam_max_angle = op.cam_max_angle > 0 and math.rad(op.cam_max_angle) or 0
 	np.pitch_frac = utils.math_clamp(op.cam_dispersion_frac or 1, 0, 1)
+	--engine growth ratio, per shot kick = base*(1 + (inc/base)*n)
+	np.increase_rate = op.cam_dispersion > 0 and op.cam_dispersion_inc / op.cam_dispersion or 0
 
 	np.shot_yaw = np.shot_pitch + np.shot_yaw
 

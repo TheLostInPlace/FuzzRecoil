@@ -40,7 +40,6 @@ wpn_info = {
 settings = {
 	debug_mode = fuzz_dev and true or false,
 
-	--TODO:
 	recoil_v_scale = 1,
 	recoil_h_scale = 1,
 	recoil_cam_scale = 1,
@@ -54,6 +53,7 @@ settings = {
 	use_pitch_frac = false,
 	use_cam_max_angle = false,
 	use_addon_ammo_koefs = false,
+	use_increase_rate = false,
 }
 config = {
 	max_hud_rot = vector():set(3, 3, 0),
@@ -65,6 +65,10 @@ config = {
 	return_damping = 15.0,
 	smooth_firing = 4.5,
 	smooth_return = 10,
+
+	--auto fire cam impulse decay and step divisor
+	cam_impulse_decay = 12,
+	cam_step_div = 15,
 
 	firing_handling_ease = utils.simple_ease:new(1, 1, 0.2, 4),
 	idle_handling_ease = utils.simple_ease:new(-1, -1, 0.2, 6),
@@ -94,7 +98,7 @@ wpn_profile = {
 	-- hud_return_speed = 1,
 
 	handling_speed = 0.5,
-	--TODO:NOT IMPLEMENTED
+	--per shot growth ratio, kick = base*(1 + increase_rate*burst_shot_index)
 	increase_rate = 0,
 	-- mass_inertia = -1,
 }
@@ -102,7 +106,8 @@ state = {
 	active = false,
 	is_firing = false,
 	handling_power = 0.0,
-	--TODO: duration or ? we need a way to achieve recoil expansion
+	--shots in the current burst, drives recoil expansion
+	burst_shots = 0,
 
 	is_cam_returned = false,
 	cam_angle = 0,
@@ -177,7 +182,8 @@ function on_before_fire()
 end
 function on_fire()
 	--FIXME: this is definately a lazy way
-	if not state.active then
+	--first draw reaches here with active already true, check the effector too
+	if not state.active or not level.check_cam_effector(CAM_FX_ID) then
 		init_recoil()
 	end
 	if state.should_shot_delay then
@@ -202,23 +208,31 @@ function on_fire()
 	local cam_handle_factor = math.pow(1.0 - state.handling_power, 2)
 	--vanilla dispersion_frac as mean preserving per shot variance
 	local frac_factor = settings.use_pitch_frac and (1 + (math.random() * 2 - 1) * (1 - wpn_profile.pitch_frac)) or 1
+	--engine style expansion, kick grows linearly with burst length (EffectorShot Shot)
+	local expansion = settings.use_increase_rate
+			and (1 + wpn_profile.increase_rate * settings.increase_rate_scale * state.burst_shots)
+		or 1
+	state.burst_shots = state.burst_shots + 1
 	local cam_impulse = wpn_profile.cam_recoil_power
 		* cam_handle_factor
 		* state.shot_cam_impulse_factor
 		* frac_factor
+		* expansion
 		* state.shot_cam_k
+		* settings.recoil_cam_scale
 	state.cam_vel = state.cam_vel + cam_impulse
 end
 function on_fire_phys()
 	--shot_cam_k scales the cam_dispersion derived axes only
-	state.vel_hud_rot.y = state.vel_hud_rot.y + wpn_profile.shot_pitch * state.shot_cam_k
-	state.vel_hud_pos.y = state.vel_hud_pos.y + wpn_profile.shot_pos_y * state.shot_cam_k
+	local v_scale = state.shot_cam_k * settings.recoil_v_scale
+	state.vel_hud_rot.y = state.vel_hud_rot.y + wpn_profile.shot_pitch * v_scale
+	state.vel_hud_pos.y = state.vel_hud_pos.y + wpn_profile.shot_pos_y * v_scale
 
-	local yaw_impulse = (math.random() * 2 - 1) * wpn_profile.shot_yaw
+	local yaw_impulse = (math.random() * 2 - 1) * wpn_profile.shot_yaw * settings.recoil_h_scale
 	state.vel_hud_rot.x = state.vel_hud_rot.x + yaw_impulse
 
 	--NOTE:count_ratio = 1/20
-	local pos_x_impulse = (math.random() * 2 - 1) * wpn_profile.shot_pos_x
+	local pos_x_impulse = (math.random() * 2 - 1) * wpn_profile.shot_pos_x * settings.recoil_h_scale
 	state.vel_hud_pos.x = state.vel_hud_pos.x + pos_x_impulse
 end
 
@@ -266,6 +280,7 @@ function on_update(dt)
 end
 function on_fire_stop()
 	state.is_firing = false
+	state.burst_shots = 0
 	sim_firing = false
 	logger.dbg("Fire stopped")
 end
@@ -295,7 +310,8 @@ end
 function pos_y_sync_with_cam()
 	if state.should_shot_delay then
 		--PERF: should cached once code is stablelized
-		y_impulse = wpn_profile.is_bolt_action and math.abs(wpn_profile.shot_pos_y) * 2 or wpn_profile.shot_pos_y
+		y_impulse = (wpn_profile.is_bolt_action and settings.bolt_action_Y_lift) and math.abs(wpn_profile.shot_pos_y) * 2
+			or wpn_profile.shot_pos_y
 		state.hud_pos_raw.y = state.cam_angle * y_impulse
 	end
 end
@@ -332,13 +348,10 @@ function do_hud_return_phys(dt)
 	set_hud_offset(state.hud_pos_smooth, state.hud_rot_smooth)
 end
 
-debug_var.float_x1 = 12
-debug_var.float_x2 = 15
 function on_cam_update(dt)
 	if state.is_firing and math.abs(state.cam_vel) > 0.01 then
-		-- state.cam_vel = state.cam_vel * (1.0 - dt * debug_var.float_x2)
-		local decay = math.exp(-dt * debug_var.float_x1)
-		local step = state.cam_vel * (1 - decay) / debug_var.float_x2
+		local decay = math.exp(-dt * config.cam_impulse_decay)
+		local step = state.cam_vel * (1 - decay) / config.cam_step_div
 		state.cam_vel = state.cam_vel * decay
 		state.cam_angle = state.cam_angle + step
 		clamp_cam_angle()
@@ -400,8 +413,8 @@ function init_weapon(wpn_sec)
 
 	-- inil some recoil paramete from here
 	state.fire_interval = 60 / wpn_info.rpm
-	config.firing_handling_ease:set_speed(wpn_profile.handling_speed)
-	config.idle_handling_ease:set_speed(wpn_profile.handling_speed)
+	config.firing_handling_ease:set_speed(wpn_profile.handling_speed * settings.handling_speed_scale)
+	config.idle_handling_ease:set_speed(wpn_profile.handling_speed * settings.handling_speed_scale)
 
 	if wpn_profile.is_bolt_action then
 		config.idle_handling_ease.intensity = config.sniper_idle_handling.intensity
@@ -458,6 +471,7 @@ end
 function reset_recoil()
 	state.active = false
 	state.is_firing = false
+	state.burst_shots = 0
 	state.handling_power = 0
 
 	disable_hud_adjust()

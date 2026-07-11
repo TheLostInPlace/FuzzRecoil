@@ -312,10 +312,9 @@ function renderProfile()
 		handle_speed_change, frm.wpn_profile.handling_speed =
 			ImGui.SliderFloat("Handling speed", frm.wpn_profile.handling_speed, 0.1, 2.0, "%.2f")
 		if handle_speed_change then
-			frm.config.firing_handling_ease:set_speed(frm.wpn_profile.handling_speed)
-			frm.config.idle_handling_ease:set_speed(frm.wpn_profile.handling_speed)
+			frm.config.firing_handling_ease:set_speed(frm.wpn_profile.handling_speed * frm.settings.handling_speed_scale)
+			frm.config.idle_handling_ease:set_speed(frm.wpn_profile.handling_speed * frm.settings.handling_speed_scale)
 		end
-		ImGui.TextColored(vector4():set(1, 0, 0, 1), "NOT IMPLEMENTED YET")
 		_, frm.wpn_profile.increase_rate =
 			ImGui.SliderFloat("Increase Rate", frm.wpn_profile.increase_rate, 0.0, 2.0, "%.2f")
 		ImGui.Separator()
@@ -344,6 +343,9 @@ function renderConfig()
 
 		ImGui.Separator()
 		ImGui.TextColored(vector4():set(0.3, 0.8, 1, 1), "Physics")
+		_, frm.config.cam_impulse_decay =
+			ImGui.SliderFloat("Cam Impulse Decay", frm.config.cam_impulse_decay, 1.0, 50.0, "%.2f")
+		_, frm.config.cam_step_div = ImGui.SliderFloat("Cam Step Div", frm.config.cam_step_div, 1.0, 50.0, "%.2f")
 		_, frm.config.smooth_firing = ImGui.SliderFloat("Smooth Firing", frm.config.smooth_firing, 0.0, 10.0, "%.2f")
 		_, frm.config.smooth_return = ImGui.SliderFloat("Smooth Return", frm.config.smooth_return, 5.0, 15.0, "%.2f")
 		_, frm.config.return_spring = ImGui.SliderFloat("Return Spring", frm.config.return_spring, 0.1, 30.0, "%.2f")
@@ -357,7 +359,8 @@ function renderConfig()
 			ImGui.Checkbox("Cam climb cap (cam_max_angle)", frm.settings.use_cam_max_angle)
 		_, frm.settings.use_addon_ammo_koefs =
 			ImGui.Checkbox("Addon and ammo recoil koefs", frm.settings.use_addon_ammo_koefs)
-		ImGui.TextColored(vector4():set(1, 0, 0, 1), "NOT IMPLEMENTED YET")
+		_, frm.settings.use_increase_rate =
+			ImGui.Checkbox("Recoil expansion (cam_dispersion_inc)", frm.settings.use_increase_rate)
 		_, frm.settings.recoil_v_scale =
 			ImGui.SliderFloat("Recoil scale(Vert)", frm.settings.recoil_v_scale, 0.1, 2.0, "%.2f")
 		_, frm.settings.recoil_h_scale =
