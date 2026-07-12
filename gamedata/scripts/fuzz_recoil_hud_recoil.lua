@@ -68,13 +68,13 @@ local is_bolt_action = false
 local max_hud_rot = vector():set(3, 3, 0)
 local max_hud_pos = vector():set(0.0025, 0.0035, 0.02)
 
-local return_spring = 150
-local return_damping = 15.0
-local smooth_firing = 4.5
-local smooth_return = 10
-
---instant mode tuning, public so imgui and the sim harness can reach it
+--tuning, public so imgui and the sim harness can reach it
 M.cfg = {
+	return_spring = 150,
+	return_damping = 15.0,
+	smooth_firing = 4.5,
+	smooth_return = 10,
+
 	--v2 kick, profile impulses rescaled into instant hud displacement
 	v2_pitch_scale = 0.1,
 	v2_yaw_scale = 0.035,
@@ -369,8 +369,8 @@ local function update_on_firing(dt, handling_power)
 	pos_raw:clamp(max_hud_pos)
 end
 local function update_on_return(dt)
-	local spring = return_spring
-	local damping = return_damping
+	local spring = cfg.return_spring
+	local damping = cfg.return_damping
 
 	apply_spring_vec(pos_raw, vel_pos, dt, spring, damping)
 	apply_spring_vec(rot_raw, vel_rot, dt, spring, damping)
@@ -393,7 +393,7 @@ local function update_spring(dt, handling_power)
 	end
 	pos_y_sync_with_cam()
 
-	apply_simple_smooth(dt, handling_power and smooth_firing or smooth_return)
+	apply_simple_smooth(dt, handling_power and cfg.smooth_firing or cfg.smooth_return)
 	M.set_hud_offset(pos_smooth, rot_smooth)
 	return false
 end
@@ -534,7 +534,7 @@ local function update_instant(dt, handling_power)
 	end
 	pos_y_sync_with_cam()
 
-	apply_simple_smooth(dt, handling_power and cfg.smooth_firing_v2 or smooth_return)
+	apply_simple_smooth(dt, handling_power and cfg.smooth_firing_v2 or cfg.smooth_return)
 	M.set_hud_offset(pos_smooth, rot_with_drift())
 	return false
 end
@@ -628,10 +628,10 @@ end
 function M.imgui_config_drawer()
 	ImGui.Text("Hud Recoil Config")
 	ImGui.TextColored(vector4():set(0.3, 0.8, 1, 1), "Physics")
-	_, smooth_firing = ImGui.SliderFloat("Smooth Firing", smooth_firing, 0.0, 10.0, "%.2f")
-	_, smooth_return = ImGui.SliderFloat("Smooth Return", smooth_return, 5.0, 15.0, "%.2f")
-	_, return_spring = ImGui.SliderFloat("Return Spring", return_spring, 0.1, 30.0, "%.2f")
-	_, return_damping = ImGui.SliderFloat("Return Damping", return_damping, 0.1, 16.0, "%.2f")
+	_, cfg.smooth_firing = ImGui.SliderFloat("Smooth Firing", cfg.smooth_firing, 0.0, 10.0, "%.2f")
+	_, cfg.smooth_return = ImGui.SliderFloat("Smooth Return", cfg.smooth_return, 5.0, 15.0, "%.2f")
+	_, cfg.return_spring = ImGui.SliderFloat("Return Spring", cfg.return_spring, 0.1, 30.0, "%.2f")
+	_, cfg.return_damping = ImGui.SliderFloat("Return Damping", cfg.return_damping, 0.1, 16.0, "%.2f")
 	iui.vector_imgui_slider_drawer(max_hud_rot, "Max Hud Rot", 5, true, true)
 	iui.vector_imgui_slider_drawer(max_hud_pos, "Max Hud Pos", 0.004, false, true)
 	if ImGui.TreeNode("V2 Kick Tuning") then
