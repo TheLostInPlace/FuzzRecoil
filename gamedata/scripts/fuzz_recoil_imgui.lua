@@ -4,6 +4,7 @@ local logger = fuzz_recoil_logger
 local cvter = fuzz_recoil_converter
 local camrc = fuzz_recoil_cam_recoil.instance
 local hudrc = fuzz_recoil_hud_recoil.instance
+local impacts = fuzz_recoil_impacts
 --stylua: ignore start
 --stylua: ignore end
 -- local log_text = frm.log_text
@@ -319,6 +320,7 @@ function renderConfig()
 		ImGui.Text("Settings")
 		_, frm.settings.hud_kick_v2 = ImGui.Checkbox("Tarkov Kick (V2 instant)", frm.settings.hud_kick_v2)
 		_, frm.settings.use_bloom = ImGui.Checkbox("Fire Bloom", frm.settings.use_bloom)
+		impacts.imgui_settings_drawer()
 		_, frm.settings.bolt_action_Y_lift = ImGui.Checkbox("Bolt-Action Lift", frm.settings.bolt_action_Y_lift)
 		_, frm.settings.cam_drag = ImGui.SliderFloat("Cam Drag", frm.settings.cam_drag, 5.0, 20.0, "%.2f")
 		ImGui.Text("Vanilla data extras")
