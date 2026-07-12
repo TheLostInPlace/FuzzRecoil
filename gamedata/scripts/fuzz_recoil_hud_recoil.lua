@@ -227,7 +227,7 @@ local function init_offset(wpn_sec)
 	end
 	hud_adjust.enabled(false)
 end
-function M.load_profile(profile)
+function M.cache_profile(profile)
 	fire_interval = profile.fire_interval
 	firing_damping = profile.firing_damping
 	pull_force = profile.pull_force
@@ -329,11 +329,11 @@ function M.awake()
 	return M
 end
 
-function M.init(wpn_sec, profile)
+function M.init(wpn_sec)
 	init_offset(wpn_sec)
-	M.load_profile(profile)
 end
-function M.start()
+function M.start(profile)
+	M.cache_profile(profile)
 	M.reset_hud_hand()
 	M.enable_hud_adjust()
 	yaw_sign = math.random() > 0.5 and 1 or -1
