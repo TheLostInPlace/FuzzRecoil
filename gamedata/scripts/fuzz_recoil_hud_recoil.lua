@@ -116,6 +116,8 @@ M.cfg = {
 	--recovery rate, base plus handling driven convergence
 	v2_recover_base = 3.0,
 	v2_recover_gain = 3.0,
+	--recenter fraction per fire interval, each snap returns before the next shot
+	v2_snap_return = 2.0,
 	--horizontal recovers slower like tarkov, z shoulder pop recovers fast
 	v2_h_recover_mul = 0.65,
 	v2_z_recover = 9.0,
@@ -506,6 +508,8 @@ local function apply_recover_instant(dt, handling_power)
 	if not is_ads then
 		r = r * cfg.hip_recover_mul
 	end
+	--rpm scaled recentering, the standing offset stays near zero at any fire rate
+	r = r + cfg.v2_snap_return / fire_interval
 	local d_v = math.exp(-r * dt)
 	local d_h = math.exp(-r * cfg.v2_h_recover_mul * dt)
 	rot_raw.y = rot_raw.y * d_v

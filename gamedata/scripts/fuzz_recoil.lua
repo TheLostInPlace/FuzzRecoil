@@ -62,7 +62,9 @@ M.settings = {
 --base is the flat hip penalty, rate grows per shot, heat caps at max
 M.bloom = {
 	decay = 1.2,
-	ads_mul = 0.75,
+	--heat grows at full rate scoped, stance only changes the base share
+	ads_mul = 1.0,
+	ads_base = 0.3,
 	classes = {
 		pistol = { base = 1.1, rate = 0.18, max = 3.0 },
 		smg = { base = 0.4, rate = 0.11, max = 2.4 },
@@ -313,7 +315,7 @@ function update_bloom(dt)
 		bloom_heat = bloom_heat * math.exp(-M.bloom.decay * dt)
 	end
 	local bc = M.bloom.classes[m_profile.burst_class] or M.bloom.classes.other
-	local mul = 1 + (is_ads and 0 or bc.base) + bloom_heat
+	local mul = 1 + bc.base * (is_ads and M.bloom.ads_base or 1) + bloom_heat
 	if math.abs(mul - bloom_applied) > 0.01 then
 		cur_cast_wpn:SetFireDispersion(orig_fire_disp * mul)
 		bloom_applied = mul
@@ -577,6 +579,7 @@ function M.imgui_config_drawer()
 		ImGui.Text(string.format("heat %.2f, applied x%.2f, base %.4frad", bloom_heat, bloom_applied, orig_fire_disp))
 		_, M.bloom.decay = ImGui.SliderFloat("Decay", M.bloom.decay, 0.2, 5.0, "%.2f")
 		_, M.bloom.ads_mul = ImGui.SliderFloat("ADS Mul", M.bloom.ads_mul, 0.0, 1.0, "%.2f")
+		_, M.bloom.ads_base = ImGui.SliderFloat("ADS Base Share", M.bloom.ads_base, 0.0, 1.0, "%.2f")
 		for _, class in ipairs({ "pistol", "smg", "ar", "lmg", "other" }) do
 			local bc = M.bloom.classes[class]
 			_, bc.base = ImGui.SliderFloat(class .. " base", bc.base, 0.0, 2.0, "%.2f")
