@@ -61,14 +61,14 @@ M.settings = {
 --condition koefs stack on top like vanilla (WeaponDispersion.cpp)
 --base is the flat hip penalty, rate grows per shot, heat caps at max
 M.bloom = {
-	decay = 1.5,
-	ads_mul = 0.35,
+	decay = 1.2,
+	ads_mul = 0.45,
 	classes = {
-		pistol = { base = 0.9, rate = 0.12, max = 1.2 },
-		smg = { base = 0.3, rate = 0.06, max = 0.8 },
-		ar = { base = 0.35, rate = 0.08, max = 0.9 },
-		lmg = { base = 0.7, rate = 0.1, max = 1.5 },
-		other = { base = 0.5, rate = 0.08, max = 1.0 },
+		pistol = { base = 0.9, rate = 0.15, max = 2.5 },
+		smg = { base = 0.3, rate = 0.08, max = 1.8 },
+		ar = { base = 0.35, rate = 0.1, max = 2.0 },
+		lmg = { base = 0.7, rate = 0.12, max = 3.0 },
+		other = { base = 0.5, rate = 0.1, max = 2.2 },
 	},
 }
 --TODO:MCM
@@ -308,7 +308,10 @@ function update_bloom(dt)
 	end
 	--stance can change without a shot, keep it current
 	is_ads = cur_cast_wpn:IsZoomed() and true or false
-	bloom_heat = bloom_heat * math.exp(-M.bloom.decay * dt)
+	--heat only cools between bursts, sustained fire climbs all the way to the class cap
+	if not is_firing then
+		bloom_heat = bloom_heat * math.exp(-M.bloom.decay * dt)
+	end
 	local bc = M.bloom.classes[m_profile.burst_class] or M.bloom.classes.other
 	local mul = 1 + (is_ads and 0 or bc.base) + bloom_heat
 	if math.abs(mul - bloom_applied) > 0.01 then

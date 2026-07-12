@@ -84,14 +84,14 @@ M.cfg = {
 	--per shot kick variance, plateau jitter scales with handling so the peak needs work
 	v2_pitch_jitter = 0.16,
 	v2_plateau_jitter = 0.18,
-	--aim point wander with momentum, the recovery does NOT pull it back
-	--each burst rolls its own travel direction, velocity capped so its trackable
-	--aggregate study winner, spread comes from confident travel not shakiness
-	v2_wander = 0.18,
-	v2_wander_vel = 0.42,
-	v2_burst_kick = 0.32,
+	--small aim point wander, visual shake only since bullets follow the camera
+	--kept tight so the sight picture stays honest about the real poi
+	--the uncompensatable spread comes from fire bloom instead
+	v2_wander = 0.08,
+	v2_wander_vel = 0.18,
+	v2_burst_kick = 0.12,
 	v2_wander_damp = 0.9,
-	v2_wander_max = 1.5,
+	v2_wander_max = 0.4,
 	v2_wander_decay = 0.25,
 	--ads uses vanilla zoom ratio, hip fire kicks harder and wanders more
 	ads_kick_mul = 1.0,
