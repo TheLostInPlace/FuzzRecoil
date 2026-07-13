@@ -337,7 +337,14 @@ end
 --Spring Mode
 --------------
 local function on_fire_spring(handling_power)
-	-- local yaw_impulse = (math.random() * 2 - 1) * wpn_profile.shot_yaw
+	-- NOTE: vertical recoil should come from cam recoil  no this
+	-- but we could turn this into an visual effect.
+	-- local pitch_kick_enhancer = 1
+	-- if handling_power > 0.7 then
+	-- 	pitch_kick_enhancer = ((yaw_sign > 0) and 1 or 0.8) * yaw_sign -- * utils.lerp(math.random(), 0.7, 1)
+	-- 	-- pitch_kick_enhancer = utils.lerp(math.random(), 0.7, 1)
+	-- end
+	-- vel_rot.y = vel_rot.y + pitch_kick_enhancer * force_pitch --/ mass_factor
 	vel_rot.y = vel_rot.y + force_pitch --/ mass_factor
 	vel_pos.y = vel_pos.y + force_y --/mass_factor
 
