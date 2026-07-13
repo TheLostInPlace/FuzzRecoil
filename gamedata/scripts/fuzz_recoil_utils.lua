@@ -58,6 +58,9 @@ end
 function M.math_clamp(val, min, max)
 	return math.max(min, math.min(max, val))
 end
+function M.lerp(val, from, to)
+	return val * (to - from) + from
+end
 function M.range_lerp(val, from, to, offset, clamp)
 	if not offset then
 		offset = 0
