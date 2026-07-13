@@ -206,6 +206,7 @@ function on_before_fire()
 	end
 	--the engine reads dispersion when the bullet leaves, apply before the first one
 	if active then
+		hudrc.pick_yaw_sign()
 		update_bloom(0)
 	end
 end

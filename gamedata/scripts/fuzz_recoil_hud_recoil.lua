@@ -341,9 +341,13 @@ local function on_fire_spring(handling_power)
 	vel_rot.y = vel_rot.y + force_pitch --/ mass_factor
 	vel_pos.y = vel_pos.y + force_y --/mass_factor
 
-	local yaw_kick_enhancer = (math.random() * 2 - 1)
-	if handling_power < 0.9 then
-		yaw_kick_enhancer = (math.random() / 10 + 0.9) * yaw_sign
+	--TODO: settings for enabled and scales
+	local yaw_kick_enhancer = utils.lerp(math.random(), 0.5, 1)
+	if handling_power < 0.7 then
+		yaw_kick_enhancer = utils.lerp(math.random(), 0.3, 1) * yaw_sign
+	else
+		M.pick_yaw_sign()
+		yaw_kick_enhancer = yaw_kick_enhancer * yaw_sign
 	end
 
 	local yaw_impulse = force_yaw * yaw_kick_enhancer
@@ -572,7 +576,13 @@ function M.start(profile)
 	M.cache_profile(profile)
 	M.reset_hud_hand()
 	M.enable_hud_adjust()
+	M.pick_yaw_sign()
+end
+function M.pick_yaw_sign()
 	yaw_sign = math.random() > 0.5 and 1 or -1
+end
+function M.invert_yaw_sign()
+	yaw_sign = yaw_sign * -1
 end
 function M.stop()
 	logger.dbg("reset hud recoil")
