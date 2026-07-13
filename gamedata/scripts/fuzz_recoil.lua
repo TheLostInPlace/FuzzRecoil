@@ -51,7 +51,6 @@ M.settings = {
 	use_pitch_frac = false,
 	use_cam_max_angle = false,
 	use_addon_ammo_koefs = false,
-	use_increase_rate = false,
 	--gamma zoom values sit at 0.6-0.8 of hip, on would weaken ads below the tune
 	use_zoom_ratio = false,
 	--fire bloom, sustained fire and hip stance widen the real bullet cone
@@ -212,13 +211,8 @@ function on_fire()
 
 	--vanilla dispersion_frac as mean preserving per shot variance
 	local frac_factor = M.settings.use_pitch_frac and (1 + (math.random() * 2 - 1) * (1 - m_profile.pitch_frac)) or 1
-	--engine style expansion, kick grows linearly with burst length (EffectorShot Shot)
-	local expansion = M.settings.use_increase_rate and (1 + m_profile.increase_rate * burst_shots) or 1
 	burst_shots = burst_shots + 1
-	local kick_scale = frac_factor
-		* expansion
-		* shot_cam_k
-		* (M.settings.hud_kick_v2 and hudrc.get_mode_kick_mul() or 1)
+	local kick_scale = frac_factor * shot_cam_k * (M.settings.hud_kick_v2 and hudrc.get_mode_kick_mul() or 1)
 	camrc.on_fire(handling_power, kick_scale)
 end
 function on_update()
