@@ -8,6 +8,12 @@ local logger = fuzz_recoil_logger
 local Profile = fuzz_recoil_profile
 local camrc = fuzz_recoil_cam_recoil.awake()
 local hudrc = fuzz_recoil_hud_recoil.awake()
+--NOTE:update when swithcing wepaon
+M.static_modifiers = fuzz_recoil_modifier:new()
+--NOTE:update before fire
+M.dynamic_modifiers = fuzz_recoil_modifier:new()
+---@type fuzz_recoil_profile
+local m_profile = Profile:new()
 ------------
 local cur_wpn = nil
 local cur_cast_wpn = nil
@@ -35,23 +41,21 @@ local cur_wpn_id = 0
 M.settings = {
 	debug_mode = fuzz_dev and true or false,
 
-	--TODO:
-	recoil_v_scale = 1,
-	recoil_h_scale = 1,
-	recoil_cam_scale = 1,
-	increase_rate_scale = 1,
-	handling_speed_scale = 1,
+	recoil_v_scale = 0,
+	recoil_h_scale = 0,
+	recoil_cam_scale = 0,
+	increase_rate_scale = 0,
+	handling_speed_scale = 0,
 	--The higher the sharper, the lower the smoother (and softer)
 	cam_drag = 12,
 	bolt_action_Y_lift = true,
 	--tarkov style hud kick, instant displacement with eased recovery
-	hud_kick_v2 = true,
+	hud_kick_v2 = false,
 
 	--vanilla data extras, off keeps stock feel
 	use_pitch_frac = false,
 	use_cam_max_angle = false,
 	use_addon_ammo_koefs = false,
-	use_increase_rate = false,
 	--gamma zoom values sit at 0.6-0.8 of hip, on would weaken ads below the tune
 	use_zoom_ratio = false,
 	--fire bloom, sustained fire and hip stance widen the real bullet cone
@@ -77,6 +81,9 @@ M.bloom = {
 }
 --TODO:MCM
 function M.apply_settings()
+	init_static_modifiers()
+	init_dynamic_modifiers()
+	m_profile:reload_modifiers()
 	hudrc.load_settings(M.settings)
 	camrc.load_settings(M.settings)
 	hudrc.switch_mode(M.settings.hud_kick_v2 and hudrc.MODE.INSTANT or hudrc.MODE.SPRING)
@@ -94,7 +101,6 @@ local idle_handling_ease = utils.simple_ease:new(-1, -1, 0.2, 6)
 --NOGUI
 sniper_idle_handling = { offset = 0.2, intensity = 0.8 }
 
-local m_profile = Profile:new()
 local wpn_info = {
 	cam_dispersion = 0,
 	cam_dispersion_inc = 0,
@@ -172,11 +178,13 @@ function on_changed_slot()
 	--Never seen it happens since switching animation will give us a natrual delay
 	--but if it happens we can fix it with a TimeEvent
 	M.force_reset_recoil()
+	--NOTE:!!!breaking change,load weapon when switching,
+	--less performance impact on before fire
+	M.check_current_weapon()
 end
 function on_before_fire()
 	-- logger.dbg("Before Shot ")
 	if not active then
-		--TODO: this is fine,we need a hook when applying upgrades on cur_weapon,to refresh
 		active = M.check_current_weapon()
 	end
 	--the engine reads dispersion when the bullet leaves, apply before the first one
@@ -209,25 +217,16 @@ function on_fire()
 	hudrc.on_fire(handling_power, is_ads, shot_cam_k, burst_shots)
 
 	--vanilla dispersion_frac as mean preserving per shot variance
-	local frac_factor = M.settings.use_pitch_frac and (1 + (math.random() * 2 - 1) * (1 - m_profile.pitch_frac))
-		or 1
-	--engine style expansion, kick grows linearly with burst length (EffectorShot Shot)
-	local expansion = M.settings.use_increase_rate
-			and (1 + m_profile.increase_rate * M.settings.increase_rate_scale * burst_shots)
-		or 1
+	local frac_factor = M.settings.use_pitch_frac and (1 + (math.random() * 2 - 1) * (1 - m_profile.pitch_frac)) or 1
 	burst_shots = burst_shots + 1
-	local kick_scale = frac_factor
-		* expansion
-		* shot_cam_k
-		* M.settings.recoil_cam_scale
-		* (M.settings.hud_kick_v2 and hudrc.get_mode_kick_mul() or 1)
+	local kick_scale = frac_factor * shot_cam_k * (M.settings.hud_kick_v2 and hudrc.get_mode_kick_mul() or 1)
 	camrc.on_fire(handling_power, kick_scale)
 end
 function on_update()
-	local dt = device().time_delta / 1000
 	if active == false then
 		return
 	end
+	local dt = device().time_delta / 1000
 	-- logger.dbg("Update")
 	--addon swap while adjust mode is on sticks the hands, reset and reinit instead
 	if time_global() >= next_addon_check then
@@ -267,6 +266,9 @@ end
 --i think cached table is better ,but we still have to update the profile evertime
 function start_recoil()
 	active = true
+	get_actor_state()
+	init_dynamic_modifiers()
+	m_profile:apply_dynamic_modifiers()
 	camrc.start(m_profile)
 	hudrc.start(m_profile)
 	RemoveTimeEvent("fuzz_recoil", "bolt_delay_stop")
@@ -350,7 +352,10 @@ end
 --=========Init Recoil and Info Collection============
 function M.init_weapon(wpn_sec)
 	collect_wpn_info(wpn_sec)
+	--TODO: better entry point needed
+	init_static_modifiers()
 	m_profile = fuzz_recoil_profile:new():load(wpn_sec, wpn_info)
+	m_profile:apply_static_modifiers()
 	remove_vanilla_cam_recoil()
 
 	--vanilla cone base in radians, bloom multiplies it at runtime
@@ -359,8 +364,8 @@ function M.init_weapon(wpn_sec)
 	bloom_applied = -1
 
 	-- inil some recoil paramete from here
-	firing_handling_ease:set_speed(m_profile.handling_speed * M.settings.handling_speed_scale)
-	idle_handling_ease:set_speed(m_profile.handling_speed * M.settings.handling_speed_scale)
+	firing_handling_ease:set_speed(m_profile.handling_speed)
+	idle_handling_ease:set_speed(m_profile.handling_speed)
 
 	if m_profile.is_bolt_action then
 		idle_handling_ease.intensity = sniper_idle_handling.intensity
@@ -373,7 +378,6 @@ function M.init_weapon(wpn_sec)
 	hudrc.init(wpn_sec, cur_cast_wpn)
 
 	addon_sig = get_addon_sig()
-
 	logger.dbg("Initialize weapon")
 end
 --NOTE: engine getters return the live post-upgrade values in radians,
@@ -412,11 +416,15 @@ function collect_wpn_info(wpn_sec)
 		wpn_info.cam_relax_speed = utils.get_float(wpn_sec, "cam_relax_speed")
 		--NOTE: engine copies hip values to zoom when the ini omits the zoom keys
 		wpn_info.zoom_cam_dispersion = utils.get_float(wpn_sec, "zoom_cam_dispersion", wpn_info.cam_dispersion)
-		wpn_info.zoom_cam_dispersion_inc = utils.get_float(wpn_sec, "zoom_cam_dispersion_inc", wpn_info.cam_dispersion_inc)
-		wpn_info.zoom_cam_dispersion_frac = utils.get_float(wpn_sec, "zoom_cam_dispersion_frac", wpn_info.cam_dispersion_frac)
+		wpn_info.zoom_cam_dispersion_inc =
+			utils.get_float(wpn_sec, "zoom_cam_dispersion_inc", wpn_info.cam_dispersion_inc)
+		wpn_info.zoom_cam_dispersion_frac =
+			utils.get_float(wpn_sec, "zoom_cam_dispersion_frac", wpn_info.cam_dispersion_frac)
 		wpn_info.zoom_cam_max_angle = utils.get_float(wpn_sec, "zoom_cam_max_angle", wpn_info.cam_max_angle)
-		wpn_info.zoom_cam_max_angle_horz = utils.get_float(wpn_sec, "zoom_cam_max_angle_horz", wpn_info.cam_max_angle_horz)
-		wpn_info.zoom_cam_step_angle_horz = utils.get_float(wpn_sec, "zoom_cam_step_angle_horz", wpn_info.cam_step_angle_horz)
+		wpn_info.zoom_cam_max_angle_horz =
+			utils.get_float(wpn_sec, "zoom_cam_max_angle_horz", wpn_info.cam_max_angle_horz)
+		wpn_info.zoom_cam_step_angle_horz =
+			utils.get_float(wpn_sec, "zoom_cam_step_angle_horz", wpn_info.cam_step_angle_horz)
 		wpn_info.zoom_cam_relax_speed = utils.get_float(wpn_sec, "zoom_cam_relax_speed", wpn_info.cam_relax_speed)
 		wpn_info.rpm = utils.get_float(wpn_sec, "rpm", 600)
 		wpn_info.mag_size = utils.get_float(wpn_sec, "ammo_mag_size", 30)
@@ -570,24 +578,91 @@ function set_vanilla_cam_recoil(cast_wpn, cam_disp, cam_disp_inc, zoom_cam_disp,
 	cast_wpn:SetZoomCamDispersion(zoom_cam_disp)
 	cast_wpn:SetZoomCamDispersionInc(zoom_cam_dis_inc)
 end
-
+--------------------
+---actor stats
+--------------------
+local actor_hunger = 1
+local actor_stamina = 1
+local actor_recoil_modi_val = 0
+local actor_stat_threshold = 0.8
+function get_actor_state()
+	if not player then
+		player = db.actor
+		if not player then
+			return
+		end
+	end
+	local condition = db.actor:cast_Actor():conditions()
+	actor_hunger = condition:GetSatiety()
+	actor_stamina = player.power
+	actor_recoil_modi_val = 0
+	if actor_hunger <= actor_stat_threshold then
+		actor_recoil_modi_val = actor_recoil_modi_val + (1 - actor_hunger) / 2
+	end
+	if actor_stamina <= actor_stat_threshold then
+		actor_recoil_modi_val = actor_recoil_modi_val + (1 - actor_stamina) / 2
+	end
+	-- logger.dbg("hunger:%.4f,stamina:%.4f", actor_hunger, actor_stamina)
+end
+--------------------
+--#region modifiers
+--------------------
+function init_static_modifiers()
+	---@type ModiData[]
+	local basic_modi = {
+		{ name = "", param = "cam_recoil_power", type = 1, val = M.settings.recoil_cam_scale },
+		-- { name = "", param = "force_pitch", type = 1, val = M.settings.recoil_v_scale },
+		-- { name = "", param = "force_y", type = 1, val = M.settings.recoil_v_scale },
+		{ name = "", param = "force_yaw", type = 1, val = M.settings.recoil_h_scale },
+		-- { name = "", param = "force_x", type = 1, val = M.settings.recoil_h_scale },
+		{ name = "", param = "handling_speed", type = 1, val = M.settings.handling_speed_scale },
+		-- { name = "", param = "increase_rate", type = 1, val = M.settings.increase_rate_scale },
+	}
+	for i, v in ipairs(basic_modi) do
+		local result = M.static_modifiers:add_modifier(i, v, true, true)
+	end
+	M.static_modifiers:refresh_modi_cache()
+end
+function init_dynamic_modifiers()
+	---@type ModiData[]
+	local basic_modi = {
+		{ name = "", param = "cam_recoil_power", type = 1, val = actor_recoil_modi_val },
+		{ name = "", param = "force_pitch", type = 1, val = actor_recoil_modi_val },
+		-- { name = "", param = "force_y", type = 1, val = actor_recoil_modi_val },
+		{ name = "", param = "force_yaw", type = 1, val = actor_recoil_modi_val },
+		-- { name = "", param = "force_x", type = 1, val = actor_recoil_modi_val },
+		-- { name = "", param = "handling_speed", type = 1, val = actor_recoil_modi_val },
+	}
+	for i, v in ipairs(basic_modi) do
+		local result = M.dynamic_modifiers:add_modifier(i, v, true, true)
+	end
+	M.dynamic_modifiers:refresh_modi_cache()
+end
+function M.reload_static_modifiers()
+	m_profile:apply_static_modifiers()
+end
+--------------------
+--#endregion modifiers
+--------------------
 --------------------
 ---IMGUI
 --------------------
 function M.imgui_config_drawer()
 	firing_handling_ease:draw_imgui("Handling inc")
 	idle_handling_ease:draw_imgui("Handling dec")
-	if ImGui.TreeNode("Fire Bloom") then
+	if ImGui.TreeNode("Fire Bloom Configs") then
 		ImGui.Text(string.format("heat %.2f, applied x%.2f, base %.4frad", bloom_heat, bloom_applied, orig_fire_disp))
 		_, M.bloom.variance = ImGui.SliderFloat("Variance", M.bloom.variance, 0.0, 3.0, "%.2f")
 		_, M.bloom.decay = ImGui.SliderFloat("Decay", M.bloom.decay, 0.2, 5.0, "%.2f")
 		_, M.bloom.ads_mul = ImGui.SliderFloat("ADS Mul", M.bloom.ads_mul, 0.0, 1.0, "%.2f")
 		_, M.bloom.ads_base = ImGui.SliderFloat("ADS Base Share", M.bloom.ads_base, 0.0, 1.0, "%.2f")
 		for _, class in ipairs({ "pistol", "smg", "ar", "lmg", "other" }) do
+			ImGui.PushID(class)
 			local bc = M.bloom.classes[class]
 			_, bc.base = ImGui.SliderFloat(class .. " base", bc.base, 0.0, 2.0, "%.2f")
 			_, bc.rate = ImGui.SliderFloat(class .. " rate", bc.rate, 0.0, 0.5, "%.3f")
 			_, bc.max = ImGui.SliderFloat(class .. " max", bc.max, 0.0, 3.0, "%.2f")
+			ImGui.PopID()
 		end
 		ImGui.TreePop()
 	end

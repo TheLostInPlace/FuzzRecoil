@@ -15,8 +15,11 @@ local shot_delay_table = {
 ---------------
 ---object
 ---------------
+---@class fuzz_recoil_profile
 local M = {}
 _G.fuzz_recoil_profile = M
+M.__index = M
+M.name = "w_nil_profile"
 
 local default_profile = {
 	is_bolt_action = false,
@@ -58,24 +61,31 @@ local default_profile = {
 	-- hidden vars
 	fire_interval = 0.1,
 }
-M.__index = M
-M.raw_profile = {}
 setmetatable(M, { __index = default_profile })
+M.raw_profile = {}
+M.static_profile = {}
 
-function M.shallow_copy(target, source)
+---------------
+---intenal functions
+---------------
+function M.shallow_copy(source, target)
 	--TODO: very scary my friend...
 	target = target or {}
 	for k, v in pairs(source) do
-		if type(v) == "number" or type(v) == "boolean" then
+		if type(v) == "number" or type(v) == "boolean" or type("string") then
 			target[k] = v
 		end
 	end
 end
-
+---------------
+---Methods
+---------------
+---@return fuzz_recoil_profile
 function M:new()
 	local ins = {}
 	setmetatable(ins, M)
 	ins.raw_profile = {}
+	ins.static_profile = {}
 	return ins
 end
 
@@ -123,6 +133,8 @@ function M:read_profile(wpn_sec, wpn_info)
 end
 
 function M:load(wpn_sec, wpn_info)
+	self.name = utils.get_base_weapon(wpn_sec)
+
 	self.fire_interval = 60 / wpn_info.rpm
 
 	self:read_profile(wpn_sec, wpn_info)
@@ -131,10 +143,42 @@ function M:load(wpn_sec, wpn_info)
 	self.burst_class = classify_burst_class(wpn_info.kind, wpn_info.mag_size)
 
 	local raw_table = {}
-	M.shallow_copy(raw_table, self)
+	self:shallow_copy(raw_table)
+
+	local static_table = {}
+	self:shallow_copy(static_table)
+
 	self.raw_profile = raw_table
-	-- logger.print_table(self)
+	self.static_profile = static_table
+
 	return self
+end
+
+---@param modi fuzz_recoil_modifier
+function M:_apply_modifiers(modi, label, source, target, extra_target)
+	if not modi then
+		logger.err("no %s modifier found for %s", label, self.name)
+		return self
+	end
+	modi:apply_modifiers(source, target, extra_target)
+	return self
+end
+function M:apply_static_modifiers()
+	return self:_apply_modifiers(fuzz_recoil.static_modifiers, "static", self.raw_profile, self.static_profile, self)
+	-- logger.print_table(self.static_profile)
+end
+function M:apply_dynamic_modifiers()
+	local result = self:_apply_modifiers(fuzz_recoil.dynamic_modifiers, "dynamic", self.static_profile, self)
+	-- logger.dbg("Applying dynamic modifiers for %s", self.name)
+	-- logger.print_table(self.raw_profile)
+	-- logger.dbg("------------------------")
+	-- logger.print_table(self.static_profile)
+	-- logger.dbg("------------------------")
+	-- logger.print_table(self)
+	return result
+end
+function M:reload_modifiers()
+	return self:apply_static_modifiers():apply_static_modifiers()
 end
 
 function M:process_shot_delay(wpn_info)
@@ -148,16 +192,13 @@ function M:process_shot_delay(wpn_info)
 	return self
 end
 
-function M:restore()
-	self:shallow_copy(self.raw_profile)
-	return self
-end
-
 ---------------
 ---IMGUI
 ---------------
 --TODO:! should edit raw
 function M:imgui_editor_drawer()
+	ImGui.Text(self.name)
+	ImGui.Separator()
 	_, self.is_bolt_action = ImGui.Checkbox("Bolt Action", self.is_bolt_action)
 	ImGui.Text("Camera recoil")
 	_, self.cam_recoil_power = ImGui.SliderFloat("Cam Recoil Power", self.cam_recoil_power, 0.1, 16.0, "%.2f")
