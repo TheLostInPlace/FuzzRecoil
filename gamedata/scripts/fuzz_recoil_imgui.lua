@@ -289,6 +289,7 @@ function info_overlay()
 	ImGui.End()
 end
 
+local _prf_type = "raw"
 --TODO:! load and apply modifier
 --don't forget sort this out ,man
 function renderProfile()
@@ -296,16 +297,42 @@ function renderProfile()
 		local prf = frm.get_recoil_profile()
 		local wpn_sec = frm.get_cur_wpn():section()
 		ImGui.Text("To input a value directly,You can crlt+click on the slider")
-		prf:imgui_editor_drawer()
-		ImGui.Text(export_hint)
-		if ImGui.Button("Apply", vector2():set(-1, 25)) then
+		if ImGui.Button("Raw") then
+			_prf_type = "raw"
+		end
+		ImGui.SameLine()
+		if ImGui.Button("Static") then
+			_prf_type = "static"
+		end
+		ImGui.SameLine()
+		if ImGui.Button("Dynamic") then
+			_prf_type = "dynamic"
+		end
+		ImGui.SameLine()
+		ImGui.Text(_prf_type)
+		local selected_prf = prf.raw_profile
+		if _prf_type == "static" then
+			selected_prf = prf.static_profile
+		elseif _prf_type == "dynamic" then
+			selected_prf = prf
+		end
+		prf.imgui_editor_drawer(selected_prf, _prf_type)
+		-- if ImGui.Button("Apply Direct", vector2():set(200, 25)) then
+		-- 	prf.shallow_copy(selected_prf, prf)
+		-- 	hudrc.cache_profile(prf)
+		-- 	camrc.cache_profile(prf)
+		-- end
+		if ImGui.Button("Apply with Modi", vector2():set(200, 25)) then
+			prf:reload_modifiers()
 			hudrc.cache_profile(prf)
 			camrc.cache_profile(prf)
 		end
-		if ImGui.Button("Export to LTX", vector2():set(-1, 25)) then
+		ImGui.Text(export_hint)
+		if ImGui.Button("Export to LTX", vector2():set(200, 25)) then
 			export_profile_to_ltx(prf, wpn_sec)
 		end
-		if ImGui.Button("Reload Profile", vector2():set(-1, 25)) then
+		ImGui.SameLine()
+		if ImGui.Button("Reload Profile", vector2():set(200, 25)) then
 			frm.init_weapon(wpn_sec)
 		end
 		ImGui.TreePop()
