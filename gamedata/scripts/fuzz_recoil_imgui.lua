@@ -158,6 +158,10 @@ function renderImguiTab()
 			impacts.imgui_settings_drawer()
 			ImGui.TreePop()
 		end
+		if not fuzz_dev then
+			ImGui.Text("Not in dev mode,advanced configs disabled")
+			return
+		end
 		if ImGui.TreeNode("Recoil Config") then
 			renderConfig()
 			ImGui.TreePop()
