@@ -66,7 +66,7 @@ function M.shallow_copy(target, source)
 	--TODO: very scary my friend...
 	target = target or {}
 	for k, v in pairs(source) do
-		if type(v) == "number" or type(v) == "boolean" then
+		if type(v) == "number" or type(v) == "boolean" or type("string") then
 			target[k] = v
 		end
 	end
