@@ -8,7 +8,12 @@ local logger = fuzz_recoil_logger
 local Profile = fuzz_recoil_profile
 local camrc = fuzz_recoil_cam_recoil.awake()
 local hudrc = fuzz_recoil_hud_recoil.awake()
-local modi = fuzz_recoil_modifier
+--NOTE:update when swithcing wepaon
+M.static_modifiers = fuzz_recoil_modifier:new()
+--NOTE:update before fire
+M.dynamic_modifiers = fuzz_recoil_modifier:new()
+---@type fuzz_recoil_profile
+local m_profile = Profile:new()
 ------------
 local cur_wpn = nil
 local cur_cast_wpn = nil
@@ -76,9 +81,11 @@ M.bloom = {
 }
 --TODO:MCM
 function M.apply_settings()
+	init_static_modifiers()
+	init_dynamic_modifiers()
+	m_profile:reload_modifiers()
 	hudrc.load_settings(M.settings)
 	camrc.load_settings(M.settings)
-	init_modifiers()
 	hudrc.switch_mode(M.settings.hud_kick_v2 and hudrc.MODE.INSTANT or hudrc.MODE.SPRING)
 end
 ------- config
@@ -94,8 +101,6 @@ local idle_handling_ease = utils.simple_ease:new(-1, -1, 0.2, 6)
 --NOGUI
 sniper_idle_handling = { offset = 0.2, intensity = 0.8 }
 
----@type fuzz_recoil_profile
-local m_profile = Profile:new()
 local wpn_info = {
 	cam_dispersion = 0,
 	cam_dispersion_inc = 0,
@@ -218,10 +223,10 @@ function on_fire()
 	camrc.on_fire(handling_power, kick_scale)
 end
 function on_update()
-	local dt = device().time_delta / 1000
 	if active == false then
 		return
 	end
+	local dt = device().time_delta / 1000
 	-- logger.dbg("Update")
 	--addon swap while adjust mode is on sticks the hands, reset and reinit instead
 	if time_global() >= next_addon_check then
@@ -262,8 +267,8 @@ end
 function start_recoil()
 	active = true
 	get_actor_state()
-	init_modifiers()
-	m_profile:apply_modifiers()
+	init_dynamic_modifiers()
+	m_profile:apply_dynamic_modifiers()
 	camrc.start(m_profile)
 	hudrc.start(m_profile)
 	RemoveTimeEvent("fuzz_recoil", "bolt_delay_stop")
@@ -347,7 +352,10 @@ end
 --=========Init Recoil and Info Collection============
 function M.init_weapon(wpn_sec)
 	collect_wpn_info(wpn_sec)
+	--TODO: better entry point needed
+	init_static_modifiers()
 	m_profile = fuzz_recoil_profile:new():load(wpn_sec, wpn_info)
+	m_profile:apply_static_modifiers()
 	remove_vanilla_cam_recoil()
 
 	--vanilla cone base in radians, bloom multiplies it at runtime
@@ -576,6 +584,7 @@ end
 local actor_hunger = 1
 local actor_stamina = 1
 local actor_recoil_modi_val = 0
+local actor_stat_threshold = 0.8
 function get_actor_state()
 	if not player then
 		player = db.actor
@@ -587,18 +596,18 @@ function get_actor_state()
 	actor_hunger = condition:GetSatiety()
 	actor_stamina = player.power
 	actor_recoil_modi_val = 0
-	-- if actor_hunger < 0.6 then
-	actor_recoil_modi_val = actor_recoil_modi_val + (1 - actor_hunger) / 2
-	-- end
-	-- if actor_stamina < 0.6 then
-	actor_recoil_modi_val = actor_recoil_modi_val + (1 - actor_stamina) / 2
-	-- end
-	logger.dbg("hunger:%.4f,stamina:%.4f", actor_hunger, actor_stamina)
+	if actor_hunger <= actor_stat_threshold then
+		actor_recoil_modi_val = actor_recoil_modi_val + (1 - actor_hunger) / 2
+	end
+	if actor_stamina <= actor_stat_threshold then
+		actor_recoil_modi_val = actor_recoil_modi_val + (1 - actor_stamina) / 2
+	end
+	-- logger.dbg("hunger:%.4f,stamina:%.4f", actor_hunger, actor_stamina)
 end
 --------------------
----modifiers
+--#region modifiers
 --------------------
-function init_modifiers()
+function init_static_modifiers()
 	---@type ModiData[]
 	local basic_modi = {
 		{ name = "", param = "cam_recoil_power", type = 1, val = M.settings.recoil_cam_scale },
@@ -608,19 +617,33 @@ function init_modifiers()
 		-- { name = "", param = "force_x", type = 1, val = M.settings.recoil_h_scale },
 		{ name = "", param = "handling_speed", type = 1, val = M.settings.handling_speed_scale },
 		-- { name = "", param = "increase_rate", type = 1, val = M.settings.increase_rate_scale },
+	}
+	for i, v in ipairs(basic_modi) do
+		local result = M.static_modifiers:add_modifier(i, v, true, true)
+	end
+	M.static_modifiers:refresh_modi_cache()
+end
+function init_dynamic_modifiers()
+	---@type ModiData[]
+	local basic_modi = {
 		{ name = "", param = "cam_recoil_power", type = 1, val = actor_recoil_modi_val },
-		-- { name = "", param = "force_pitch", type = 1, val = actor_recoil_modi_val },
+		{ name = "", param = "force_pitch", type = 1, val = actor_recoil_modi_val },
 		-- { name = "", param = "force_y", type = 1, val = actor_recoil_modi_val },
 		{ name = "", param = "force_yaw", type = 1, val = actor_recoil_modi_val },
 		-- { name = "", param = "force_x", type = 1, val = actor_recoil_modi_val },
 		-- { name = "", param = "handling_speed", type = 1, val = actor_recoil_modi_val },
 	}
 	for i, v in ipairs(basic_modi) do
-		local result = modi.add_modifier(i, v, true, true)
-		logger.dbg("%s:%s", i, result)
+		local result = M.dynamic_modifiers:add_modifier(i, v, true, true)
 	end
-	modi.refresh_modi_cache()
+	M.dynamic_modifiers:refresh_modi_cache()
 end
+function M.reload_static_modifiers()
+	m_profile:apply_static_modifiers()
+end
+--------------------
+--#endregion modifiers
+--------------------
 --------------------
 ---IMGUI
 --------------------

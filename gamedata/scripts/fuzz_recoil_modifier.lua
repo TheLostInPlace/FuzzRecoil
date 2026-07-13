@@ -1,14 +1,16 @@
 local logger = fuzz_recoil_logger
+---@class fuzz_recoil_modifier
 local M = {}
+M.__index = M
 _G.fuzz_recoil_modifier = M
 ---------------
 ---modifier
 ---------------
 --TODO: UNIT TEST for modifier
 ---NOTE: weapons shares modifier so we make it local
-local m_modifiers = {}
-local cached_modifiers = {
-	basic = {},
+M.m_modifiers = {}
+M.cached_modifiers = {
+	simple = {},
 	funcs = {},
 }
 ---@alias ModiType
@@ -60,8 +62,8 @@ end
 
 ---@param modi_data ModiData
 ---@return AddModiResult result
-local function m_add_modi(id, modi_data, force_replace)
-	if m_modifiers[id] then
+function M:_add_modi(id, modi_data, force_replace)
+	if self.m_modifiers[id] then
 		if not id or not modi_data then
 			logger.err("can't find id or modi_data")
 			return 3
@@ -71,18 +73,18 @@ local function m_add_modi(id, modi_data, force_replace)
 		end
 
 		if force_replace then
-			m_modifiers[id] = modi_data
+			self.m_modifiers[id] = modi_data
 			return 1
 		else
 			return 2
 		end
 	end
-	m_modifiers[id] = modi_data
+	self.m_modifiers[id] = modi_data
 	return 0
 end
 
 ---@param m ModiData
-local function cache_basic_modi(t, m)
+local function cache_simple_modi(t, m)
 	if not t[m.param] then
 		t[m.param] = { add = 0, scale = 1, mul = 1 }
 	end
@@ -94,44 +96,53 @@ local function cache_basic_modi(t, m)
 		t[m.param].mul = t[m.param].mul + m.val
 	end
 end
-function M.refresh_modi_cache()
+function M:refresh_modi_cache()
 	--clear the cache
-	cached_modifiers = {
-		basic = {},
+	self.cached_modifiers = {
+		simple = {},
 		funcs = {},
 	}
-	for id, mod in ipairs(m_modifiers) do
+	for id, mod in ipairs(self.m_modifiers) do
 		if mod.type < 3 then
-			cache_basic_modi(cached_modifiers.basic, mod)
+			cache_simple_modi(self.cached_modifiers.simple, mod)
 		else
-			cached_modifiers.funcs[id] = mod.func
+			self.cached_modifiers.funcs[id] = mod.func
 		end
 	end
-	logger.print_table(cached_modifiers)
 end
 
 ---------------
----Internal functions
+---Internal methods
 ---------------
+---@return fuzz_recoil_modifier
+function M:new()
+	local ins = {}
+	setmetatable(ins, M)
+	return ins
+end
 
----@param profile fuzz_recoil_profile
+---@param target fuzz_recoil_profile
 ---Internal calls for fuzz_recoil,don't use
-function M.apply_modifiers(profile)
-	if not profile then
+function M:apply_modifiers(source, target, extra_target)
+	--NOTE: we can use ... isntead of extra_target
+	if not target then
 		logger.err("can't find profile when applying modifiers")
 	end
-	local raw_prf = profile.raw_profile
 	--NOTE: no nil check since we validate them
-	for k, v in pairs(cached_modifiers.basic) do
-		profile[k] = (raw_prf[k] + v.add) * v.scale * v.mul
+	for k, v in pairs(self.cached_modifiers.simple) do
+		-- logger.dbg("applying modifier-%s:%.6f,%.6f,%.6f", k, v.add, v.scale, v.mul)
+		target[k] = (source[k] + v.add) * v.scale * v.mul
+		if extra_target then
+			extra_target[k] = target[k]
+		end
 	end
-	for _, func in pairs(cached_modifiers.funcs) do
-		func(profile)
+	for _, func in pairs(self.cached_modifiers.funcs) do
+		func(target)
 	end
 end
 
 ---------------
----Public functions
+---Public methods
 ---------------
 ---@param id integer 0-100 and 500-600 is resevered for fuzz_recoil
 ---@param force_replace? boolean force replace if the mod exsits
@@ -139,10 +150,10 @@ end
 ---@param modi_data ModiData
 ---@return AddModiResult result
 ---!!!DO NOT CALL THIS FREQUENTLY!!!
-function M.add_modifier(id, modi_data, force_replace, no_refresh)
-	result = m_add_modi(id, modi_data, force_replace)
+function M:add_modifier(id, modi_data, force_replace, no_refresh)
+	result = self:_add_modi(id, modi_data, force_replace)
 	if not no_refresh and result < 2 then
-		M.refresh_modi_cache()
+		self:refresh_modi_cache()
 	end
 	return result
 end
@@ -151,11 +162,11 @@ end
 ---@return boolean
 ---|true found and removed
 ---|false not found
-function M.remove_modifier(id)
-	if m_modifiers[id] then
-		m_modifiers[id] = nil
+function M:remove_modifier(id)
+	if self.m_modifiers[id] then
+		self.m_modifiers[id] = nil
 		--TODO: brute refresh,not that good
-		M.refresh_modi_cache()
+		self:refresh_modi_cache()
 		return true
 	end
 	return false
@@ -163,6 +174,6 @@ end
 
 ---@param id integer 0-100 and 500-600 is resevered for fuzz_recoil
 ---nil if not exsits
-function M.get_modifier(id)
-	return m_modifiers[id]
+function M:get_modifier(id)
+	return self.m_modifiers[id]
 end

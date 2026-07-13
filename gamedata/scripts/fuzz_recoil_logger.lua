@@ -51,14 +51,14 @@ function M.print_table(t, indent)
 	if not indent then
 		indent = ""
 	end
-	M.dbg("%s{", indent)
+	M.dbg("%s={", indent)
 	for k, v in pairs(t) do
 		if type(v) == "table" then
-			M.dbg("%s%s:", indent, k)
+			M.dbg("%s%s=", indent, k)
 			M.print_table(v, indent .. "  ")
 		else
-			M.dbg("%s%s:%s", indent, k, v)
+			M.dbg("%s%s=%s,", indent, k, v)
 		end
 	end
-	M.dbg("%s}", indent)
+	M.dbg("%s},", indent)
 end
