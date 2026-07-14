@@ -1,4 +1,4 @@
-local M = { version = "a4.5" }
+local M = { version = "a5" }
 _G.fuzz_recoil = M
 ---@diagnostic disable: lowercase-global
 ----------Imports
