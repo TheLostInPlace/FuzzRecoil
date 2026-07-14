@@ -213,11 +213,14 @@ end
 ---------------
 ---IMGUI
 ---------------
+
 function M.imgui_editor_drawer(_prf, _prf_type)
 	ImGui.PushID(_prf.name .. _prf_type)
 	ImGui.BeginDisabled(_prf_type ~= "raw")
+
 	ImGui.Separator()
 	_, _prf.is_bolt_action = ImGui.Checkbox("Bolt Action", _prf.is_bolt_action)
+
 	ImGui.Text("Camera recoil")
 	_, _prf.cam_recoil_power = ImGui.SliderFloat("Cam Recoil Power", _prf.cam_recoil_power, 0.1, 16.0, "%.2f")
 	_, _prf.cam_return_speed = ImGui.SliderFloat("Cam Return Speed", _prf.cam_return_speed, 0.5, 2, "%.2f")
@@ -228,22 +231,32 @@ function M.imgui_editor_drawer(_prf, _prf_type)
 	ImGui.Text("Hud Recoil")
 	_, _prf.pull_force = ImGui.SliderFloat("Pull Force", _prf.pull_force, 0.1, 4.0, "%.2f")
 	_, _prf.firing_damping = ImGui.SliderFloat("Spring Damping", _prf.firing_damping, 0.1, 4.0, "%.2f")
+
 	ImGui.Text("Shot Impact Force")
 	_, _prf.force_pitch = ImGui.SliderFloat("Pitch", _prf.force_pitch, 0, 60, "%.2f")
 	_, _prf.force_y = ImGui.SliderFloat("PosY", _prf.force_y, -0.06, 0.06, "%.4f")
-	-- _prf.force_y = _prf.force_y
 	_, _prf.force_yaw = ImGui.SliderFloat("Yaw", _prf.force_yaw, 0, 60, "%.2f")
 	_, _prf.force_x = ImGui.SliderFloat("PosX", _prf.force_x, 0.0001, 0.0025, "%.4f")
 	_, _prf.force_z = ImGui.SliderFloat("PosZ (shoulder)", _prf.force_z, 0.0, 0.02, "%.4f")
-	-- _prf.force_x = _prf.force_x
 
+	ImGui.Separator()
+	ImGui.Text("Shot Delay")
+	_, _prf.shot_delay_enabled = ImGui.Checkbox("Enabled", _prf.shot_delay_enabled)
+	ImGui.BeginDisabled(not _prf.shot_delay_enabled)
+	_, _prf.shot_delay_time = ImGui.SliderFloat("Shot Delay Time", _prf.shot_delay_time, 0.0, 1.0, "%.3f")
+	ImGui.EndDisabled()
+
+	_, _prf.shot_cam_impulse_factor =
+		ImGui.SliderFloat("Shot Cam Impulse Factor", _prf.shot_cam_impulse_factor, 0.0, 5.0, "%.3f")
+	ImGui.Separator()
 	ImGui.Text("Handling")
+	local handle_speed_change
 	handle_speed_change, _prf.handling_speed =
 		ImGui.SliderFloat("Handling speed", _prf.handling_speed, 0.1, 2.0, "%.2f")
 	if handle_speed_change then
 		fuzz_recoil.set_handling_speed(_prf.handling_speed)
 	end
-	ImGui.Separator()
+
 	ImGui.EndDisabled()
 	ImGui.PopID()
 end
