@@ -78,9 +78,6 @@ local default_profile = {
 	--NOTE: CONSIDER REMOVE
 	--0 means uncapped, radians like cam angle
 	cam_max_angle = 0,
-
-	--TODO:NOT IMPLEMENTED
-	stamina_factor = 1,
 }
 setmetatable(M, { __index = default_profile })
 M.raw_profile = {}
@@ -146,8 +143,6 @@ function M:read_profile(wpn_sec, wpn_info)
 		self.firing_damping = utils.get_float(prf_sec, "firing_damping", 1)
 
 		self.handling_speed = utils.get_float(prf_sec, "handling_speed", 0.5)
-		self.increase_rate = utils.get_float(prf_sec, "increase_rate", 0)
-		self.stamina_factor = utils.get_float(prf_sec, "stamina_factor", 0)
 	else
 		cvter.convert(wpn_info, self)
 		cvter.convert(wpn_info, self:new())
@@ -248,7 +243,6 @@ function M.imgui_editor_drawer(_prf, _prf_type)
 	if handle_speed_change then
 		fuzz_recoil.set_handling_speed(_prf.handling_speed)
 	end
-	_, _prf.increase_rate = ImGui.SliderFloat("Increase Rate", _prf.increase_rate, 0.0, 2.0, "%.2f")
 	ImGui.Separator()
 	ImGui.EndDisabled()
 	ImGui.PopID()

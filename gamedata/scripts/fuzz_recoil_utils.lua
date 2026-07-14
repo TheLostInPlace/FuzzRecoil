@@ -19,8 +19,10 @@ function M.get_float(sec, param, def)
 	return SYS_GetParam(2, sec, param, def ~= nil and def or 0.0)
 end
 
+---@class simple_ease
 M.simple_ease = {}
 M.simple_ease.__index = M.simple_ease
+---@return simple_ease
 function M.simple_ease:new(base_speed, speed_mul, offset, intensity, mode)
 	local ins = {
 		base_speed = base_speed,
@@ -57,6 +59,9 @@ end
 
 function M.math_clamp(val, min, max)
 	return math.max(min, math.min(max, val))
+end
+function M.lerp(val, from, to)
+	return val * (to - from) + from
 end
 function M.range_lerp(val, from, to, offset, clamp)
 	if not offset then
