@@ -11,7 +11,7 @@ lua_file="$script_dir/gamedata/scripts/fuzz_recoil.lua"
 	exit 1
 }
 
-version="$(awk -F'"' '/fuzz_recoil[[:space:]]*=[[:space:]]*{[[:space:]]*version[[:space:]]*=[[:space:]]*"/{print $2; exit}' "$lua_file")"
+version="$(grep -nE 'version[[:space:]]*=' "$lua_file" | head -n1 | sed -nE 's/.*"([^"]+)".*/\1/p')"
 [[ -n "$version" ]] || {
 	echo "Can't parse fuzz_recoil.version from: $lua_file"
 	exit 1
@@ -53,16 +53,21 @@ copy_files() {
 
 copy_files "00 Core" \
 	"gamedata/anims/camera_effects/onerad.anm" \
-	"gamedata/scripts/fuzz_recoil.lua" \
 	"gamedata/scripts/fuzz_recoil_converter.lua" \
 	"gamedata/scripts/fuzz_recoil_logger.lua" \
-	"gamedata/scripts/fuzz_recoil_utils.lua"
+	"gamedata/scripts/fuzz_recoil_utils.lua" \
+	"gamedata/scripts/fuzz_recoil_profile.lua" \
+	"gamedata/scripts/fuzz_recoil_modifier.lua" \
+	"gamedata/scripts/fuzz_recoil_cam_recoil.lua" \
+	"gamedata/scripts/fuzz_recoil_hud_recoil.lua" \
+	"gamedata/scripts/fuzz_recoil.lua"
 
-copy_files "01 Shot_fx_disable" \
+copy_files "01 Shot_fx_disable(camshake)" \
 	"gamedata/scripts/zzzz_shot_effect_patch.script"
 
-copy_files "02 ImGui_Modules" \
-	"gamedata/scripts/fuzz_recoil_imgui.lua"
+copy_files "02 ImGui_Editors" \
+	"gamedata/scripts/fuzz_recoil_imgui.lua" \
+	"gamedata/scripts/fuzz_recoil_impacts.lua"
 
 out_zip="./output/${mod_name}_${version}.7z"
 if [[ -e "$out_zip" ]]; then
@@ -70,3 +75,4 @@ if [[ -e "$out_zip" ]]; then
 fi
 
 7z a "$out_zip" "${out_root}/*"
+cp "$out_zip" "$HOME/Downloads"
