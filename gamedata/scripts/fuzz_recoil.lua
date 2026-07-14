@@ -44,16 +44,16 @@ M.settings = {
 	--Global vertical recoil additional scale,
 	--positive increases, negative decreases , 0 means default
 	---(-0,9---2.0)
-	recoil_cam_scale = 0,
+	recoil_cam_scale = 0.1,
 	--Global horizontal recoil additional scale,
 	--positive increases, negative decreases , 0 means default
 	---(-0,9---2.0)
-	recoil_h_scale = 0,
+	recoil_h_scale = 0.1,
 	--Global recoil handling additional scale,
 	--positive increases, negative decreases , 0 means default
 	--(-0,9---2.0)
 	handling_speed_scale = 0,
-	--how fast fatigue increases
+	--how fast fatigue increases,higher than 0.15 is recommanded,0 to turn it off
 	--(0-0.3)
 	impulse_fatigue_ratio = 0.25, --cam_impulse/2/10 most gun impulse landed around 2
 	--Camera drag for bolt-action weapon
@@ -62,10 +62,9 @@ M.settings = {
 	cam_drag = 12,
 	--Bolt Action will have be lifted on y-axis
 	bolt_action_Y_lift = true,
+	--NOTE: EXPERIMENTAL
 	--tarkov style hud kick, instant displacement with eased recovery
 	hud_kick_v2 = false,
-	--NOTE: EXPERIMENTAL
-
 	--fire bloom, sustained fire and hip stance widen the real bullet cone
 	use_bloom = true,
 	--gamma zoom values sit at 0.6-0.8 of hip, on would weaken ads below the tune
@@ -300,9 +299,6 @@ end
 ----------------------
 ---state
 ---------------------
---TODO: fallback to vanilla if something went wrong
---PERF:smart_cast everytime or cached table?
---i think cached table is better ,but we still have to update the profile evertime
 function start_recoil()
 	active = true
 	get_actor_state()
@@ -419,6 +415,7 @@ function M.init_weapon(wpn_sec)
 	addon_sig = get_addon_sig()
 	logger.dbg("Initialize weapon")
 end
+--TODO:if using cached profile , we need check upgrades and call this agian
 --NOTE: engine getters return the live post-upgrade values in radians,
 --converter rules are tuned to ini degrees, so convert back with math.deg
 function collect_wpn_info(wpn_sec)
@@ -539,7 +536,9 @@ function get_addon_sig()
 		.. tostring(cur_cast_wpn:GetSilencerName())
 		.. (cur_cast_wpn:IsGrenadeLauncherAttached() and "g" or "")
 end
---TODO: call this when switching weapon
+--TODO: fallback to vanilla if something went wrong
+--PERF:smart_cast everytime or cached table?
+--i think cached table is better ,but we still have to update the profile evertime
 function M.check_current_weapon()
 	player = db.actor
 	if not player then
