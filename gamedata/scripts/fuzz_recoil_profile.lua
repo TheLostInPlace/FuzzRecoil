@@ -87,9 +87,9 @@ M.static_profile = {}
 ---intenal functions
 ---------------
 function M.shallow_copy(source, target)
-	--TODO: very scary my friend...
 	target = target or {}
-	for k, v in pairs(source) do
+	--NOTE: use default_profile as indexer to make sure we copied everything
+	for k, v in pairs(default_profile) do
 		if type(v) == "number" or type(v) == "boolean" or type(v) == "string" then
 			target[k] = v
 		end
