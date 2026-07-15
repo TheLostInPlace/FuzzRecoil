@@ -163,7 +163,7 @@ function log_overlay()
 	end
 	ImGui.SetNextWindowSize(vector2():set(400, 200), ImGuiCond.FirstUseEver)
 	expanded, _ = ImGui.Begin("Recoil Log", true)
-	if expanded and frm.get_cur_wpn() then
+	if expanded then
 		-- Force scroll if the user was already at the bottom, or if a new item triggered a scroll
 		ImGui.Text(logger.get_log_text())
 		if auto_scroll_logs and ImGui.GetScrollY() >= ImGui.GetScrollMaxY() then
@@ -258,6 +258,7 @@ end
 
 local _prf_type = "raw"
 local modi_enabled = true
+local export_to_gamedata = fuzz_dev and true or false
 --TODO:! load and apply modifier
 --don't forget sort this out ,man
 function renderProfile()
@@ -300,7 +301,13 @@ function renderProfile()
 		end
 		ImGui.Text(export_hint)
 		if ImGui.Button("Export to LTX", vector2():set(200, 25)) then
-			export_profile_to_ltx(prf, wpn_sec)
+			export_profile_to_ltx(prf, wpn_sec, export_to_gamedata)
+		end
+		ImGui.SameLine()
+		export_folder_change, export_to_gamedata = ImGui.Checkbox("Gamedata", export_to_gamedata)
+		if export_folder_change then
+			local dest = export_to_gamedata and "gamedata" or "game's bin"
+			export_hint = string.format("Export profile to your %s folder", dest)
 		end
 		ImGui.SameLine()
 		if ImGui.Button("Reload Profile", vector2():set(200, 25)) then
@@ -336,29 +343,30 @@ function renderOptions()
 		ImGui.TreePop()
 	end
 end
+local cheat_mag = false
+local inf_weight = fuzz_dev and true or false
 function renderExtra()
 	if ImGui.Button("Log Modi") then
 		local modi_text = "\nstatic_modifiers =" .. tostring(fuzz_recoil.static_modifiers)
 		modi_text = modi_text .. "\n dynamic_modifiers=" .. tostring(fuzz_recoil.dynamic_modifiers)
 		logger.dbg(modi_text)
-		local tbl = {
-			tbla = {
-				a = 1,
-				b = 2,
-				c = "string",
-			},
-			tblb = {
-				a = 3,
-				b = 4,
-				f = "tblb",
-				depth3 = {
-					ddd = "hellow",
-					depth = 3,
-				},
-			},
-		}
-		logger.dbg(logger.format_table(tbl))
 	end
+	ImGui.SameLine()
+	if ImGui.Button("0Pow") then
+		db.actor:change_power(-1)
+	end
+	ImGui.SameLine()
+	if ImGui.Button("0Hun") then
+		db.actor:change_satiety(-1)
+	end
+	ImGui.SameLine()
+	if ImGui.Button("1Hun") then
+		db.actor:change_satiety(1)
+	end
+	ImGui.SameLine()
+	_, inf_weight = ImGui.Checkbox("Wgt", inf_weight)
+	ImGui.SameLine()
+	_, cheat_mag = ImGui.Checkbox("InfAmmo", cheat_mag)
 end
 function renderConfig()
 	ImGui.TextColored(vector4():set(1, 0, 0, 1), "vvvvv DO NOT TOUCH THIS vvvvv")
@@ -390,9 +398,6 @@ end
 
 local M = {}
 _G.fuzz_recoil_imgui = M
-function M.on_game_start()
-	hudrc = fuzz_recoil_hud_recoil
-end
 function M.vector_imgui_text_drawer(vec, label, is_rot)
 	local formater = is_rot and "Y: %.5f | P: %.5f | R: %.5f" or "X: %.5f | Y: %.5f | Z: %.5f"
 	local info = string.format(formater, vec.x, vec.y, vec.z)
@@ -427,11 +432,14 @@ function indicator_drawer(val, label, min, max)
 	end
 end
 
-function export_profile_to_ltx(input_profile, wpn_sec)
+function export_profile_to_ltx(input_profile, wpn_sec, folder_flag)
 	local profile = input_profile.raw_profile
 	local wpn_name = tostring(utils.get_base_weapon(wpn_sec))
 
 	local filename = string.format("mod_system_z_fuzz_recoil_%s.ltx", wpn_name)
+	if folder_flag then
+		filename = "../gamedata/configs/" .. filename
+	end
 	local file = io.open(filename, "w")
 	if not file then
 		export_hint = "Failed to open file when exporting"
@@ -451,4 +459,27 @@ function export_profile_to_ltx(input_profile, wpn_sec)
 	file:write(content)
 	file:close()
 	export_hint = "Recoil profile exported to " .. filename
+end
+function M.on_game_start()
+	if not fuzz_dev then
+		return
+	end
+	hudrc = fuzz_recoil_hud_recoil
+	RegisterScriptCallback("actor_on_weapon_fired", on_fire)
+	RegisterScriptCallback("actor_on_update", on_update)
+	log("Fuzz:Dev mode enabled")
+end
+function on_update()
+	--FIXME: something is changing my weight
+	local player = db.actor
+	if inf_weight then
+		player:set_actor_max_weight(8888)
+		player:set_actor_max_walk_weight(8888)
+		player:update_weight()
+	end
+end
+function on_fire()
+	if cheat_mag then
+		fuzz_recoil.get_cur_wpn():cast_Weapon():SetAmmoElapsed(30)
+	end
 end
