@@ -163,7 +163,7 @@ function log_overlay()
 	end
 	ImGui.SetNextWindowSize(vector2():set(400, 200), ImGuiCond.FirstUseEver)
 	expanded, _ = ImGui.Begin("Recoil Log", true)
-	if expanded and frm.get_cur_wpn() then
+	if expanded then
 		-- Force scroll if the user was already at the bottom, or if a new item triggered a scroll
 		ImGui.Text(logger.get_log_text())
 		if auto_scroll_logs and ImGui.GetScrollY() >= ImGui.GetScrollMaxY() then
@@ -343,12 +343,30 @@ function renderOptions()
 		ImGui.TreePop()
 	end
 end
+local cheat_mag = false
+local inf_weight = fuzz_dev and true or false
 function renderExtra()
 	if ImGui.Button("Log Modi") then
 		local modi_text = "\nstatic_modifiers =" .. tostring(fuzz_recoil.static_modifiers)
 		modi_text = modi_text .. "\n dynamic_modifiers=" .. tostring(fuzz_recoil.dynamic_modifiers)
 		logger.dbg(modi_text)
 	end
+	ImGui.SameLine()
+	if ImGui.Button("0Pow") then
+		db.actor:change_power(-1)
+	end
+	ImGui.SameLine()
+	if ImGui.Button("0Hun") then
+		db.actor:change_satiety(-1)
+	end
+	ImGui.SameLine()
+	if ImGui.Button("1Hun") then
+		db.actor:change_satiety(1)
+	end
+	ImGui.SameLine()
+	_, inf_weight = ImGui.Checkbox("Wgt", inf_weight)
+	ImGui.SameLine()
+	_, cheat_mag = ImGui.Checkbox("InfAmmo", cheat_mag)
 end
 function renderConfig()
 	ImGui.TextColored(vector4():set(1, 0, 0, 1), "vvvvv DO NOT TOUCH THIS vvvvv")
@@ -380,9 +398,6 @@ end
 
 local M = {}
 _G.fuzz_recoil_imgui = M
-function M.on_game_start()
-	hudrc = fuzz_recoil_hud_recoil
-end
 function M.vector_imgui_text_drawer(vec, label, is_rot)
 	local formater = is_rot and "Y: %.5f | P: %.5f | R: %.5f" or "X: %.5f | Y: %.5f | Z: %.5f"
 	local info = string.format(formater, vec.x, vec.y, vec.z)
@@ -444,4 +459,27 @@ function export_profile_to_ltx(input_profile, wpn_sec, folder_flag)
 	file:write(content)
 	file:close()
 	export_hint = "Recoil profile exported to " .. filename
+end
+function M.on_game_start()
+	if not fuzz_dev then
+		return
+	end
+	hudrc = fuzz_recoil_hud_recoil
+	RegisterScriptCallback("actor_on_weapon_fired", on_fire)
+	RegisterScriptCallback("actor_on_update", on_update)
+	log("Fuzz:Dev mode enabled")
+end
+function on_update()
+	--FIXME: something is changing my weight
+	local player = db.actor
+	if inf_weight then
+		player:set_actor_max_weight(8888)
+		player:set_actor_max_walk_weight(8888)
+		player:update_weight()
+	end
+end
+function on_fire()
+	if cheat_mag then
+		fuzz_recoil.get_cur_wpn():cast_Weapon():SetAmmoElapsed(30)
+	end
 end
