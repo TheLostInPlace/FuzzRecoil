@@ -82,25 +82,29 @@ local idle_handling_ease = utils.simple_ease:new(-1, -1, 0.2, 6)
 sniper_idle_handling = { offset = 0.2, intensity = 0.8 }
 
 local wpn_info = {
+	--NOTE: upgrade needed
 	cam_dispersion = 0,
-	cam_dispersion_inc = 0,
-	cam_dispersion_frac = 0.7,
-	cam_max_angle = 0,
-	cam_max_angle_horz = 0,
 	cam_step_angle_horz = 0,
-	cam_relax_speed = 0,
+	cam_dispersion_inc = 0,
+	--NOTE: always needed
 	zoom_cam_dispersion = 0,
 	zoom_cam_dispersion_inc = 0,
-	zoom_cam_dispersion_frac = 0.7,
-	zoom_cam_max_angle = 0,
-	zoom_cam_max_angle_horz = 0,
-	zoom_cam_step_angle_horz = 0,
-	zoom_cam_relax_speed = 0,
+	rpm = 600,
+	cam_relax_speed = 0,
+	mag_size = 30,
+	--NOTE: feature needed
+	cam_dispersion_frac = 0.7,
+	cam_max_angle = 0,
 	addon_cam_k = 1,
 	addon_cam_inc_k = 1,
 	inv_weight = 0,
-	mag_size = 30,
-	rpm = 600,
+	--NOTE: should remove
+	zoom_cam_relax_speed = 0,
+	zoom_cam_max_angle = 0,
+	cam_max_angle_horz = 0,
+	zoom_cam_dispersion_frac = 0.7,
+	zoom_cam_max_angle_horz = 0,
+	zoom_cam_step_angle_horz = 0,
 }
 
 --------------------
