@@ -258,6 +258,7 @@ end
 
 local _prf_type = "raw"
 local modi_enabled = true
+local export_to_gamedata = fuzz_dev and true or false
 --TODO:! load and apply modifier
 --don't forget sort this out ,man
 function renderProfile()
@@ -300,7 +301,13 @@ function renderProfile()
 		end
 		ImGui.Text(export_hint)
 		if ImGui.Button("Export to LTX", vector2():set(200, 25)) then
-			export_profile_to_ltx(prf, wpn_sec)
+			export_profile_to_ltx(prf, wpn_sec, export_to_gamedata)
+		end
+		ImGui.SameLine()
+		export_folder_change, export_to_gamedata = ImGui.Checkbox("Gamedata", export_to_gamedata)
+		if export_folder_change then
+			local dest = export_to_gamedata and "gamedata" or "game's bin"
+			export_hint = string.format("Export profile to your %s folder", dest)
 		end
 		ImGui.SameLine()
 		if ImGui.Button("Reload Profile", vector2():set(200, 25)) then
@@ -410,11 +417,14 @@ function indicator_drawer(val, label, min, max)
 	end
 end
 
-function export_profile_to_ltx(input_profile, wpn_sec)
+function export_profile_to_ltx(input_profile, wpn_sec, folder_flag)
 	local profile = input_profile.raw_profile
 	local wpn_name = tostring(utils.get_base_weapon(wpn_sec))
 
 	local filename = string.format("mod_system_z_fuzz_recoil_%s.ltx", wpn_name)
+	if folder_flag then
+		filename = "../gamedata/configs/" .. filename
+	end
 	local file = io.open(filename, "w")
 	if not file then
 		export_hint = "Failed to open file when exporting"
