@@ -90,7 +90,7 @@ function M.shallow_copy(source, target)
 	--TODO: very scary my friend...
 	target = target or {}
 	for k, v in pairs(source) do
-		if type(v) == "number" or type(v) == "boolean" or type("string") then
+		if type(v) == "number" or type(v) == "boolean" or type(v) == "string" then
 			target[k] = v
 		end
 	end
@@ -195,7 +195,12 @@ function M:apply_dynamic_modifiers()
 	-- logger.print_table(self)
 	return result
 end
+function M:RestoreFromRaw()
+	M.shallow_copy(self.raw_profile, self.static_profile)
+	M.shallow_copy(self.raw_profile, self)
+end
 function M:reload_modifiers()
+	self:RestoreFromRaw()
 	return self:apply_static_modifiers():apply_dynamic_modifiers()
 end
 
