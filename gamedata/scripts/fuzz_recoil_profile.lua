@@ -157,6 +157,7 @@ function M:read_profile(wpn_sec, wpn_info, prf_sec)
 			handling_speed   = { type = 2, read = false },
 
 			is_bolt_action   = { type = 1, read = false },
+			desync_hud       = { type = 1, read = false },
 			zoom_ratio       = { type = 2, read = false },
 
 			pitch_frac       = { type = 2, read = false },
@@ -262,6 +263,7 @@ function M:process_shot_delay(wpn_info, prf_sec)
 		end
 	end
 	-- NOTE: or we can just check available firemodes?
+	-- TODO:move this to converter
 	local skind = shot_delay_table[wpn_info.kind]
 	if skind and wpn_info.rpm <= skind.rpm then
 		self.shot_delay_enabled = true

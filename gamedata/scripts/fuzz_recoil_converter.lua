@@ -2,6 +2,16 @@ local utils = fuzz_recoil_utils
 
 local M = {}
 _G.fuzz_recoil_converter = M
+local desync_hud_list = {
+	w_shotgun = true,
+	w_pistol = true,
+}
+local function is_bolt_action(op)
+	if op.kind ~= "w_sniper" then
+		return false
+	end
+	return op.rpm <= 60
+end
 
 M.rule = {
 	["cam_recoil_power"] = { offset = 1, from = { min = 0, max = 4 }, to = { min = 1, max = 5 } },
@@ -51,10 +61,10 @@ local special_converter = {
 		return 1
 	end,
 	["is_bolt_action"] = function(op)
-		if op.kind ~= "w_sniper" then
-			return false
-		end
-		return op.rpm <= 60
+		return is_bolt_action(op)
+	end,
+	["desync_hud"] = function(op)
+		return (desync_hud_list[op.kind] and true or false) or is_bolt_action(op)
 	end,
 	["cam_max_angle"] = function(op)
 		--TODO: shotgun and pistol rule here
