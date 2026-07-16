@@ -62,14 +62,6 @@ function renderImguiWindow()
 	ImGui.End()
 end
 function renderImguiTab()
-	ImGui.SameLine()
-	if ImGui.Button("ToggleOverlays", vector2():set(100, 25)) then
-		overlay_toggle = not overlay_toggle
-		showPlots = overlay_toggle
-		showLogs = overlay_toggle
-		showInfo = overlay_toggle
-		showProfile = overlay_toggle
-	end
 	ImGui.Text(debug_text1)
 	_, showProfile = ImGui.Checkbox("Profile", showProfile)
 	ImGui.SameLine()
@@ -81,6 +73,14 @@ function renderImguiTab()
 		else
 			debug_text1 = "Failed to load weapon"
 		end
+	end
+	ImGui.SameLine()
+	if ImGui.Button("ToggleOverlays", vector2():set(100, 25)) then
+		overlay_toggle = not overlay_toggle
+		showPlots = overlay_toggle
+		showLogs = overlay_toggle
+		showInfo = overlay_toggle
+		showProfile = overlay_toggle
 	end
 	----------------
 	----------------

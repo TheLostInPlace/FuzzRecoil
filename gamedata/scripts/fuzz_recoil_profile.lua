@@ -265,6 +265,7 @@ end
 ---IMGUI
 ---------------
 
+---@param _prf FuzzRecoilProfile
 function M.imgui_editor_drawer(_prf, _prf_type, _prf_name)
 	ImGui.PushID("profile" .. _prf_type)
 	ImGui.BeginDisabled(_prf_type ~= "raw")
@@ -274,14 +275,20 @@ function M.imgui_editor_drawer(_prf, _prf_type, _prf_name)
 
 	ImGui.Text("Camera recoil")
 	_, _prf.cam_recoil_power = ImGui.SliderFloat("Cam Recoil Power", _prf.cam_recoil_power, 0.1, 16.0, "%.2f")
-	_, _prf.cam_return_speed = ImGui.SliderFloat("Cam Return Speed", _prf.cam_return_speed, 0.5, 2, "%.2f")
+	_, _prf.cam_return_speed = ImGui.SliderFloat("Cam Return Speed", _prf.cam_return_speed, -1, 2, "%.2f")
 	_, _prf.cam_max_angle = ImGui.SliderFloat("Cam Max Angle", _prf.cam_max_angle, 0, 1, "%.3frad")
-	_, _prf.pitch_frac = ImGui.SliderFloat("Pitch Frac", _prf.pitch_frac, 0, 1, "%.2f")
-	_, _prf.zoom_ratio = ImGui.SliderFloat("Zoom Ratio", _prf.zoom_ratio, 0.25, 2, "%.2f")
 
 	ImGui.Text("Hud Recoil")
 	_, _prf.pull_force = ImGui.SliderFloat("Pull Force", _prf.pull_force, 0.1, 4.0, "%.2f")
 	_, _prf.firing_damping = ImGui.SliderFloat("Spring Damping", _prf.firing_damping, 0.1, 4.0, "%.2f")
+	ImGui.Separator()
+	ImGui.Text("Handling")
+	local handle_speed_change
+	handle_speed_change, _prf.handling_speed =
+		ImGui.SliderFloat("Handling speed", _prf.handling_speed, 0.1, 2.0, "%.2f")
+	if handle_speed_change then
+		fuzz_recoil.set_handling_speed(_prf.handling_speed)
+	end
 
 	ImGui.Text("Shot Impact Force")
 	_, _prf.force_pitch = ImGui.SliderFloat("Pitch", _prf.force_pitch, 0, 60, "%.2f")
@@ -300,13 +307,9 @@ function M.imgui_editor_drawer(_prf, _prf_type, _prf_name)
 	_, _prf.shot_cam_impulse_factor =
 		ImGui.SliderFloat("Shot Cam Impulse Factor", _prf.shot_cam_impulse_factor, 0.0, 5.0, "%.3f")
 	ImGui.Separator()
-	ImGui.Text("Handling")
-	local handle_speed_change
-	handle_speed_change, _prf.handling_speed =
-		ImGui.SliderFloat("Handling speed", _prf.handling_speed, 0.1, 2.0, "%.2f")
-	if handle_speed_change then
-		fuzz_recoil.set_handling_speed(_prf.handling_speed)
-	end
+	ImGui.Text("Misc")
+	_, _prf.pitch_frac = ImGui.SliderFloat("Pitch Frac", _prf.pitch_frac, 0, 1, "%.2f")
+	_, _prf.zoom_ratio = ImGui.SliderFloat("Zoom Ratio", _prf.zoom_ratio, 0.25, 2, "%.2f")
 
 	ImGui.EndDisabled()
 	ImGui.PopID()
