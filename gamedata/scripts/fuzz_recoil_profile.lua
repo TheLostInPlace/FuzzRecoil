@@ -23,23 +23,30 @@ M.__index = M
 ---@class FuzzRecoilProfile
 ---@field cam_recoil_power number
 ---@field cam_return_speed number
+---@field cam_max_angle number
+---
 ---@field force_pitch number
 ---@field force_y number
 ---@field force_yaw number
 ---@field force_x number
 ---@field force_z number
+---
 ---@field handling_speed number
 ---@field pull_force number
 ---@field firing_damping number
+---
 ---@field zoom_ratio number
 ---@field is_bolt_action boolean
----@field fire_interval number
+---@field desync_hud boolean
 ---@field pitch_frac number
 ---
 ---@field burst_class string
+---
 ---@field shot_delay_enabled boolean
 ---@field shot_delay_time number
 ---@field shot_cam_impulse_factor number
+---
+---@field fire_interval number
 
 --WARN:don forget the convert_list,i know this sucks
 
@@ -48,6 +55,8 @@ local default_profile = {
 
 	cam_recoil_power = 4,
 	cam_return_speed = 1,
+	--0 means uncapped, radians like cam angle
+	cam_max_angle = 0,
 
 	force_pitch = 15,
 	force_y = -0.04,
@@ -63,7 +72,7 @@ local default_profile = {
 	--ads kick relative to hip, from vanilla zoom_cam_dispersion/cam_dispersion
 	zoom_ratio = 1,
 	is_bolt_action = false,
-	fire_interval = 0.1,
+	desync_hud = false,
 	--1 means no per shot variance
 	pitch_frac = 1,
 
@@ -75,10 +84,7 @@ local default_profile = {
 	shot_delay_enabled = false,
 	shot_delay_time = 0.4,
 	shot_cam_impulse_factor = 0.2,
-
-	--NOTE: CONSIDER REMOVE
-	--0 means uncapped, radians like cam angle
-	cam_max_angle = 0,
+	fire_interval = 0.1,
 }
 setmetatable(M, { __index = default_profile })
 M.raw_profile = {}
@@ -272,6 +278,8 @@ function M.imgui_editor_drawer(_prf, _prf_type, _prf_name)
 	ImGui.Text(_prf_name)
 	ImGui.Separator()
 	_, _prf.is_bolt_action = ImGui.Checkbox("Bolt Action", _prf.is_bolt_action)
+	ImGui.SameLine()
+	_, _prf.desync_hud = ImGui.Checkbox("Cam desync hud", _prf.desync_hud)
 
 	ImGui.Text("Camera recoil")
 	_, _prf.cam_recoil_power = ImGui.SliderFloat("Cam Recoil Power", _prf.cam_recoil_power, 0.1, 16.0, "%.2f")
@@ -303,9 +311,9 @@ function M.imgui_editor_drawer(_prf, _prf_type, _prf_name)
 	ImGui.BeginDisabled(not _prf.shot_delay_enabled)
 	_, _prf.shot_delay_time = ImGui.SliderFloat("Shot Delay Time", _prf.shot_delay_time, 0.0, 1.0, "%.3f")
 	ImGui.EndDisabled()
-
 	_, _prf.shot_cam_impulse_factor =
 		ImGui.SliderFloat("Shot Cam Impulse Factor", _prf.shot_cam_impulse_factor, 0.0, 5.0, "%.3f")
+
 	ImGui.Separator()
 	ImGui.Text("Misc")
 	_, _prf.pitch_frac = ImGui.SliderFloat("Pitch Frac", _prf.pitch_frac, 0, 1, "%.2f")

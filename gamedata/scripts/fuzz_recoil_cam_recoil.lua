@@ -9,9 +9,10 @@ _G.fuzz_recoil_cam_recoil = M
 ---CAM_FX
 ----------
 local CAM_FX_ID = 7897
+local hud_sync_with_cam = true
 local function create_cam_effector()
 	if not level.check_cam_effector(CAM_FX_ID) then
-		level.add_cam_effector("camera_effects\\onerad.anm", 7897, true, "", 0, true, 0.0001)
+		level.add_cam_effector("camera_effects\\onerad.anm", 7897, true, "", 0, hud_sync_with_cam, 0.0001)
 	end
 end
 function M.has_camera_effector()
@@ -36,7 +37,7 @@ end
 local is_returned = false
 local m_vel = 0
 local m_angle = 0
-local bonus_return_speed = 0
+local wepaon_cam_return_speed = 0
 
 local _update_fn = M.update_exp
 ----------
@@ -95,11 +96,13 @@ function M.init(mode)
 	end
 	M.stop()
 end
+---@param profile FuzzRecoilProfile
 function M.cache_profile(profile)
 	lift_force = profile.cam_recoil_power
 	impulse_factor = profile.shot_cam_impulse_factor
-	bonus_return_speed = profile.cam_return_speed
+	wepaon_cam_return_speed = profile.cam_return_speed
 	max_angle = profile.cam_max_angle or 0
+	hud_sync_with_cam = not profile.desync_hud
 end
 function M.start(profile)
 	M.cache_profile(profile)
@@ -193,7 +196,7 @@ function M.do_return(dt)
 		M.stop()
 		return
 	end
-	local speed_factor = base_cam_return_speed + bonus_return_speed
+	local speed_factor = base_cam_return_speed + wepaon_cam_return_speed
 	local lerp_factor = 1.0 - math.exp(-speed_factor * dt)
 
 	local step = m_angle * lerp_factor
