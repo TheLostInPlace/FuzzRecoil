@@ -229,7 +229,7 @@ end
 local function pos_y_sync_with_cam()
 	if bolt_action_Y_lift and shot_delay_enabled then
 		--PERF: should cached once code is stablelized
-		y_impulse = use_Y_lift and math.abs(force_y) * 2 or force_y
+		y_impulse = math.min(use_Y_lift and math.abs(force_y) * 4 or force_y, 0.12)
 		pos_raw.y = camrc.get_angle() * y_impulse
 	end
 end
