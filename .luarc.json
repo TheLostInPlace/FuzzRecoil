@@ -33,7 +33,8 @@
         "CreateTimeEvent",
         "ini_file_ex",
         "ui_mcm",
-        "fuzz_recoil_mcm"
+        "fuzz_recoil_mcm",
+        "weight"
     ],
     "diagnostics.disable": [
         "unused-local",

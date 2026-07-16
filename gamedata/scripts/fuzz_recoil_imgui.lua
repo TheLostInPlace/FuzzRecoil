@@ -363,7 +363,14 @@ function renderExtra()
 		db.actor:change_satiety(1)
 	end
 	ImGui.SameLine()
-	_, inf_weight = ImGui.Checkbox("Wgt", inf_weight)
+	change_weight, inf_weight = ImGui.Checkbox("Wgt", inf_weight)
+	if change_weight then
+		if inf_weight then
+			weight.add_weight("fuzz_cheat", 8888)
+		else
+			weight.remove_weight("fuzz_cheat")
+		end
+	end
 	ImGui.SameLine()
 	_, cheat_mag = ImGui.Checkbox("InfAmmo", cheat_mag)
 end
@@ -465,20 +472,19 @@ function M.on_game_start()
 	end
 	hudrc = fuzz_recoil_hud_recoil
 	RegisterScriptCallback("actor_on_weapon_fired", on_fire)
-	RegisterScriptCallback("actor_on_update", on_update)
+	RegisterScriptCallback("actor_on_first_update", actor_on_first_update)
+	-- RegisterScriptCallback("actor_on_update", on_update)
 	log("Fuzz:Dev mode enabled")
 end
-function on_update()
-	--FIXME: something is changing my weight
-	local player = db.actor
+function actor_on_first_update()
 	if inf_weight then
-		player:set_actor_max_weight(8888)
-		player:set_actor_max_walk_weight(8888)
-		player:update_weight()
+		weight.add_weight("fuzz_cheat", 8888)
 	end
 end
 function on_fire()
 	if cheat_mag then
-		fuzz_recoil.get_cur_wpn():cast_Weapon():SetAmmoElapsed(30)
+		cast_wpn = fuzz_recoil.get_cur_wpn():cast_Weapon()
+		cast_wpn:SetAmmoElapsed(30)
+		cast_wpn:SetMisfire(false)
 	end
 end
