@@ -3,8 +3,8 @@ local utils = fuzz_recoil_utils
 local M = {}
 _G.fuzz_recoil_converter = M
 local desync_hud_list = {
-	w_shotgun = true,
-	w_pistol = true,
+	w_shotgun = 1200,
+	w_pistol = 550,
 }
 local function is_bolt_action(op)
 	if op.kind ~= "w_sniper" then
@@ -64,7 +64,14 @@ local special_converter = {
 		return is_bolt_action(op)
 	end,
 	["desync_hud"] = function(op)
-		return (desync_hud_list[op.kind] and true or false) or is_bolt_action(op)
+		if is_bolt_action(op) then
+			return true
+		end
+		local max_rpm = desync_hud_list[op.kind]
+		if max_rpm and op.rpm <= max_rpm then
+			return true
+		end
+		return false
 	end,
 	["cam_max_angle"] = function(op)
 		--TODO: pistol rule here
@@ -115,7 +122,7 @@ end
 local shot_delay_list = {
 	w_sniper = { rpm = 60, cam_impulse = 1, mul = 1 },
 	w_shotgun = { rpm = 1000, cam_impulse = 0.7, mul = 0.25 },
-	w_pistol = { rpm = 340, cam_impulse = 0.4, mul = 0.5 },
+	w_pistol = { rpm = 525, cam_impulse = 0.15, mul = 0.25 },
 }
 -- NOTE: or we can just check available firemodes?
 function M.get_shot_delay(prf, wpn_info)
