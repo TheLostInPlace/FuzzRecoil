@@ -278,7 +278,7 @@ end
 ---@param _prf FuzzRecoilProfile
 function M.imgui_editor_drawer(_prf, _prf_type, _prf_name)
 	ImGui.PushID("profile" .. _prf_type)
-	ImGui.BeginDisabled(_prf_type ~= "raw")
+	ImGui.BeginDisabled(_prf_type > 1)
 	ImGui.Text(_prf_name)
 	ImGui.Separator()
 	_, _prf.is_bolt_action = ImGui.Checkbox("Bolt Action", _prf.is_bolt_action)

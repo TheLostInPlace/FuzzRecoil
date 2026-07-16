@@ -256,7 +256,7 @@ function info_overlay()
 	ImGui.End()
 end
 
-local _prf_type = "raw"
+local _prf_type = 1
 local modi_enabled = true
 local export_to_gamedata = fuzz_dev and true or false
 local force_convert = false
@@ -267,28 +267,18 @@ function renderProfile()
 		local prf = frm.get_recoil_profile()
 		local wpn_sec = frm.get_cur_wpn():section()
 		ImGui.Text("To input a value directly,You can crlt+click on the slider")
-		if ImGui.Button("Raw") then
-			_prf_type = "raw"
+		ImGui.Text("Profile:")
+		for i, v in ipairs({ "Raw(Edit this)", "Static", "Dynamic" }) do
+			ImGui.SameLine()
+			if ImGui.RadioButton(v, _prf_type == i) then
+				_prf_type = i
+			end
 		end
-		ImGui.SameLine()
-		if ImGui.Button("Static") then
-			_prf_type = "static"
-		end
-		ImGui.SameLine()
-		if ImGui.Button("Dynamic") then
-			_prf_type = "dynamic"
-		end
-		ImGui.SameLine()
-		ImGui.Text(_prf_type)
-		local selected_prf = prf.raw_profile
-		if _prf_type == "static" then
-			selected_prf = prf.static_profile
-		elseif _prf_type == "dynamic" then
-			selected_prf = prf
-		end
+		local available_prf = { prf.raw_profile, prf.static_profile, prf }
 		---@diagnostic disable: param-type-mismatch
-		prf.imgui_editor_drawer(selected_prf, _prf_type, prf.info.name)
+		prf.imgui_editor_drawer(available_prf[_prf_type], _prf_type, prf.info.name)
 
+		ImGui.Separator()
 		ImGui.Text("Edit without modifier if you want to share your recoil profile")
 		if ImGui.Button("Apply profile", vector2():set(200, 25)) then
 			prf:reload_modifiers()
