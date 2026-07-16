@@ -411,15 +411,15 @@ function renderWeaponSpawner()
 	end
 end
 function renderConfig()
-	ImGui.TextColored(vector4():set(1, 0, 0, 1), "vvvvv DO NOT TOUCH THIS vvvvv")
-	if ImGui.TreeNode("Config") then
-		ImGui.TextColored(vector4():set(1, 1, 0, 1), "UNLESS YOU KNOW WHAT YOU ARE DOING")
-		frm.imgui_config_drawer()
-		camrc.imgui_config_drawer()
-		ImGui.Separator()
-		hudrc.imgui_config_drawer()
-		ImGui.TreePop()
-	end
+	-- ImGui.TextColored(vector4():set(1, 0, 0, 1), "vvvvv DO NOT TOUCH THIS vvvvv")
+	-- if ImGui.TreeNode("Config") then
+	-- ImGui.TextColored(vector4():set(1, 1, 0, 1), "UNLESS YOU KNOW WHAT YOU ARE DOING")
+	frm.imgui_config_drawer()
+	camrc.imgui_config_drawer()
+	ImGui.Separator()
+	hudrc.imgui_config_drawer()
+	-- 	ImGui.TreePop()
+	-- end
 	--TODO:refactor this to base
 	ImGui.Separator()
 end
