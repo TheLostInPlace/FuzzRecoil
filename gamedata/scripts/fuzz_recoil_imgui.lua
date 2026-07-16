@@ -246,6 +246,10 @@ function info_overlay()
 
 		local hdl_power = frm.get_handling_power()
 		ImGui.ProgressBar(hdl_power, vector2():set(-1, 0), string.format("Handling power: %.1f%%", hdl_power * 100))
+		--NOTE: double calc ,but it's ok for debug
+		hdl_power = frm.get_real_handling_power()
+		--stylua: ignore
+		ImGui.ProgressBar(hdl_power, vector2():set(-1, 0), string.format("Real Handling power: %.1f%%", hdl_power * 100))
 		local hdl_fatigue = frm.get_handling_fatigue()
 		ImGui.ProgressBar(hdl_fatigue, vector2():set(-1, 0), string.format("Handling fatigue: %.2f", hdl_fatigue))
 		ImGui.Separator()
