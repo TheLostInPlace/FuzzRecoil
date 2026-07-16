@@ -33,7 +33,9 @@
         "CreateTimeEvent",
         "ini_file_ex",
         "ui_mcm",
-        "fuzz_recoil_mcm"
+        "fuzz_recoil_mcm",
+        "weight",
+        "give_object_to_actor"
     ],
     "diagnostics.disable": [
         "unused-local",

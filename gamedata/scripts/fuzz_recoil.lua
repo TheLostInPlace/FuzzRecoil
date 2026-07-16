@@ -92,7 +92,6 @@ local wpn_info = {
 	mag_size = 30,
 	--NOTE: feature needed
 	cam_dispersion_frac = 0.7,
-	cam_max_angle = 0,
 	addon_cam_k = 1,
 	addon_cam_inc_k = 1,
 	inv_weight = 0,
@@ -124,6 +123,13 @@ function M.get_handling_power()
 end
 function M.get_handling_fatigue()
 	return handling_fatigue
+end
+function M.get_real_handling_power()
+	local fatigue_scale = 1
+	if handling_fatigue > 1 then
+		fatigue_scale = 1 - utils.lerp_in(handling_fatigue - 1, 0, FATIGUE_MAX_POWER)
+	end
+	return handling_power * fatigue_scale
 end
 function M.get_shot_cam_k()
 	return shot_cam_k
@@ -181,6 +187,7 @@ function on_fire()
 	end
 	if m_profile.shot_delay_enabled then
 		--create is a no op while one is pending, reset makes the delay count from the last shot
+		--PERF: maybe a local timer could be faster?
 		CreateTimeEvent("fuzz_recoil", "bolt_delay_stop", m_profile.shot_delay_time, function()
 			on_fire_stop()
 			return true
@@ -197,17 +204,14 @@ function on_fire()
 		bloom_heat = math.min(bloom_heat + bc.rate * (is_ads and M.bloom.ads_mul or 1), bc.max)
 	end
 
-	local fatigue_scale = 1
-	if handling_fatigue > 1 then
-		fatigue_scale = 1 - utils.lerp_in(handling_fatigue - 1, 0, FATIGUE_MAX_POWER)
-	end
-	hudrc.on_fire(handling_power * fatigue_scale, is_ads, shot_cam_k, burst_shots)
+	local hp = M.get_real_handling_power()
+	hudrc.on_fire(hp, is_ads, shot_cam_k, burst_shots)
 
 	--vanilla dispersion_frac as mean preserving per shot variance
 	local frac_factor = options.use_pitch_frac and (1 + (math.random() * 2 - 1) * (1 - m_profile.pitch_frac)) or 1
 	burst_shots = burst_shots + 1
 	local kick_scale = frac_factor * shot_cam_k * (options.hud_kick_v2 and hudrc.get_mode_kick_mul() or 1)
-	camrc.on_fire(handling_power * fatigue_scale, kick_scale)
+	camrc.on_fire(hp, kick_scale)
 end
 function on_update()
 	local dt = device().time_delta / 1000
@@ -374,7 +378,6 @@ end
 function get_feat_wpn_info()
 	--NOTE: dispersion_frac is a unitless fraction, no deg conversion
 	wpn_info.cam_dispersion_frac = cur_cast_wpn:GetCamDispersionFrac()
-	wpn_info.cam_max_angle = math.deg(cur_cast_wpn:GetCamMaxAngleVert())
 	--live weight includes attached addons
 	wpn_info.inv_weight = cur_cast_wpn:Weight()
 	collect_addon_koefs()

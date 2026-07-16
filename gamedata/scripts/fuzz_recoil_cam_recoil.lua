@@ -6,37 +6,12 @@ local M = {}
 _G.fuzz_recoil_cam_recoil = M
 
 ----------
----CAM_FX
-----------
-local CAM_FX_ID = 7897
-local function create_cam_effector()
-	if not level.check_cam_effector(CAM_FX_ID) then
-		level.add_cam_effector("camera_effects\\onerad.anm", 7897, true, "", 0, true, 0.0001)
-	end
-end
-function M.has_camera_effector()
-	return level.check_cam_effector(CAM_FX_ID)
-end
-local function set_player_angle(angle)
-	--no op until start adds the effector, resets before init are silent
-	if M.has_camera_effector() then
-		level.set_cam_effector_factor(CAM_FX_ID, math.max(0.0001, math.min(angle, 0.999)))
-	end
-end
-function set_cam_effect_id(id)
-	CAM_FX_ID = id
-end
-function cam_fx_id()
-	return CAM_FX_ID
-end
-
-----------
 ---Local Vars
 ----------
 local is_returned = false
 local m_vel = 0
 local m_angle = 0
-local bonus_return_speed = 0
+local wepaon_cam_return_speed = 0
 
 local _update_fn = M.update_exp
 ----------
@@ -45,7 +20,7 @@ local _update_fn = M.update_exp
 local lift_force = 0
 local impulse_factor = 0
 --vanilla cam_max_angle cap in radians, 0 means uncapped
-local max_angle = 0
+local max_angle = 0.9999
 ----------
 ---Pulibc Getters
 ----------
@@ -70,20 +45,44 @@ cam_step_div = 15
 ---Options
 ----------
 local cam_drag = 12
-local use_cam_max_angle = false
 function M.on_option_change()
 	cam_drag = options.cam_drag
-	use_cam_max_angle = options.use_cam_max_angle
 end
-----------
----Module
-----------
 
+----------
+---CAM_FX
+----------
+local CAM_FX_ID = 7897
+local hud_sync_with_cam = true
+local function create_cam_effector()
+	if not level.check_cam_effector(CAM_FX_ID) then
+		level.add_cam_effector("camera_effects\\onerad.anm", 7897, true, "", 0, hud_sync_with_cam, 0.0001)
+	end
+end
+function M.has_camera_effector()
+	return level.check_cam_effector(CAM_FX_ID)
+end
+function set_cam_effect_id(id)
+	CAM_FX_ID = id
+end
+function cam_fx_id()
+	return CAM_FX_ID
+end
+local function set_player_angle(angle)
+	--no op until start adds the effector, resets before init are silent
+	if M.has_camera_effector() then
+		level.set_cam_effector_factor(CAM_FX_ID, math.max(0.0001, math.min(angle, max_angle)))
+	end
+end
 function M.remove_cam_fx()
 	if level.check_cam_effector(CAM_FX_ID) then
 		level.remove_cam_effector(CAM_FX_ID)
 	end
 end
+
+----------
+---Module
+----------
 
 function M.awake()
 	M.instance = M
@@ -95,11 +94,13 @@ function M.init(mode)
 	end
 	M.stop()
 end
+---@param profile FuzzRecoilProfile
 function M.cache_profile(profile)
 	lift_force = profile.cam_recoil_power
 	impulse_factor = profile.shot_cam_impulse_factor
-	bonus_return_speed = profile.cam_return_speed
-	max_angle = profile.cam_max_angle or 0
+	wepaon_cam_return_speed = profile.cam_return_speed
+	max_angle = profile.cam_max_angle or 0.9999
+	hud_sync_with_cam = not profile.desync_hud
 end
 function M.start(profile)
 	M.cache_profile(profile)
@@ -124,20 +125,6 @@ function M.on_fire(handle, scale)
 	m_vel = m_vel + cam_impulse
 end
 
---vanilla cam_max_angle cap, 0 disables
---NOTE: we use cam_fx which lerp from 0 to 1,
---animation is a simle 0-57.3(one rad) pitch rotation
---power glitch at 0 and 1, so i hard-clamp it in set_plyaer_angle
---most weapon clamps at 51 degree ,
-local function clamp_angle()
-	if not use_cam_max_angle then
-		return
-	end
-	if max_angle > 0 and m_angle > max_angle then
-		m_angle = max_angle
-	end
-end
-
 function M.update_cubic(dt)
 	if math.abs(m_vel) <= 0.01 then
 		return
@@ -145,7 +132,6 @@ function M.update_cubic(dt)
 	local drag = cam_drag * math.sqrt(math.abs(m_vel))
 	m_vel = m_vel * math.exp(-drag * dt)
 	m_angle = m_angle + m_vel * dt
-	clamp_angle()
 	set_player_angle(m_angle)
 end
 function M.update_exp(dt)
@@ -156,7 +142,6 @@ function M.update_exp(dt)
 	local step = m_vel * (1 - decay) / cam_step_div
 	m_vel = m_vel * decay
 	m_angle = m_angle + step
-	clamp_angle()
 	set_player_angle(m_angle)
 end
 function M.update_spring(dt)
@@ -193,7 +178,7 @@ function M.do_return(dt)
 		M.stop()
 		return
 	end
-	local speed_factor = base_cam_return_speed + bonus_return_speed
+	local speed_factor = base_cam_return_speed + wepaon_cam_return_speed
 	local lerp_factor = 1.0 - math.exp(-speed_factor * dt)
 
 	local step = m_angle * lerp_factor

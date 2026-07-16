@@ -7,11 +7,6 @@ local logger = fuzz_recoil_logger
 ---------------
 ---config
 ---------------
-local shot_delay_table = {
-	w_sniper = { rpm = 60, cam_impulse = 1 },
-	w_shotgun = { rpm = 250, cam_impulse = 0.7 },
-	w_pistol = { rpm = 340, cam_impulse = 0.4 },
-}
 ---------------
 ---object
 ---------------
@@ -23,23 +18,30 @@ M.__index = M
 ---@class FuzzRecoilProfile
 ---@field cam_recoil_power number
 ---@field cam_return_speed number
+---@field cam_max_angle number
+---
 ---@field force_pitch number
 ---@field force_y number
 ---@field force_yaw number
 ---@field force_x number
 ---@field force_z number
+---
 ---@field handling_speed number
 ---@field pull_force number
 ---@field firing_damping number
+---
 ---@field zoom_ratio number
 ---@field is_bolt_action boolean
----@field fire_interval number
+---@field desync_hud boolean
 ---@field pitch_frac number
 ---
 ---@field burst_class string
+---
 ---@field shot_delay_enabled boolean
 ---@field shot_delay_time number
 ---@field shot_cam_impulse_factor number
+---
+---@field fire_interval number
 
 --WARN:don forget the convert_list,i know this sucks
 
@@ -48,6 +50,8 @@ local default_profile = {
 
 	cam_recoil_power = 4,
 	cam_return_speed = 1,
+	--0 means uncapped, radians like cam angle
+	cam_max_angle = 0.9999,
 
 	force_pitch = 15,
 	force_y = -0.04,
@@ -63,7 +67,7 @@ local default_profile = {
 	--ads kick relative to hip, from vanilla zoom_cam_dispersion/cam_dispersion
 	zoom_ratio = 1,
 	is_bolt_action = false,
-	fire_interval = 0.1,
+	desync_hud = false,
 	--1 means no per shot variance
 	pitch_frac = 1,
 
@@ -75,10 +79,7 @@ local default_profile = {
 	shot_delay_enabled = false,
 	shot_delay_time = 0.4,
 	shot_cam_impulse_factor = 0.2,
-
-	--NOTE: CONSIDER REMOVE
-	--0 means uncapped, radians like cam angle
-	cam_max_angle = 0,
+	fire_interval = 0.1,
 }
 setmetatable(M, { __index = default_profile })
 M.raw_profile = {}
@@ -91,6 +92,10 @@ M.info = {
 ---------------
 ---intenal functions
 ---------------
+local force_convert = false
+function M.set_force_convert(flag)
+	force_convert = flag
+end
 function M.shallow_copy(source, target)
 	target = target or {}
 	--NOTE: use default_profile as indexer to make sure we copied everything
@@ -129,7 +134,7 @@ local function classify_burst_class(kind, mag_size)
 end
 
 function M:read_profile(wpn_sec, wpn_info, prf_sec)
-	if prf_sec then
+	if prf_sec and not force_convert then
 		------------Basic reading---------------------
 		local convert_list = {
 			--stylua: ignore start
@@ -147,6 +152,7 @@ function M:read_profile(wpn_sec, wpn_info, prf_sec)
 			handling_speed   = { type = 2, read = false },
 
 			is_bolt_action   = { type = 1, read = false },
+			desync_hud       = { type = 1, read = false },
 			zoom_ratio       = { type = 2, read = false },
 
 			pitch_frac       = { type = 2, read = false },
@@ -238,26 +244,24 @@ function M:reload_modifiers()
 end
 
 function M:process_shot_delay(wpn_info, prf_sec)
-	local read = true
-	--NOTE: all 3 param must be declare to make it work
+	--EVEN worse,i guess
 	if prf_sec then
 		local e = SYS_GetParam(1, prf_sec, "shot_delay_enabled")
-		local t = SYS_GetParam(2, prf_sec, "shot_delay_time")
-		local f = SYS_GetParam(2, prf_sec, "shot_cam_impulse_factor")
-		if e ~= nil and t and f then
+		if e ~= nil then
 			self.shot_delay_enabled = e
-			self.shot_delay_time = t
-			self.shot_cam_impulse_factor = f
-			return
+			if not e then
+				return self
+			end
+			local t = SYS_GetParam(2, prf_sec, "shot_delay_time")
+			local f = SYS_GetParam(2, prf_sec, "shot_cam_impulse_factor")
+			if t and f then
+				self.shot_delay_time = t
+				self.shot_cam_impulse_factor = f
+				return self
+			end
 		end
 	end
-	-- NOTE: or we can just check available firemodes?
-	local skind = shot_delay_table[wpn_info.kind]
-	if skind and wpn_info.rpm <= skind.rpm then
-		self.shot_delay_enabled = true
-		self.shot_delay_time = utils.math_clamp(self.fire_interval, 0.1, 0.5)
-		self.shot_cam_impulse_factor = skind.cam_impulse
-	end
+	cvter.get_shot_delay(self, wpn_info)
 	return self
 end
 
@@ -265,23 +269,32 @@ end
 ---IMGUI
 ---------------
 
+---@param _prf FuzzRecoilProfile
 function M.imgui_editor_drawer(_prf, _prf_type, _prf_name)
 	ImGui.PushID("profile" .. _prf_type)
-	ImGui.BeginDisabled(_prf_type ~= "raw")
+	ImGui.BeginDisabled(_prf_type > 1)
 	ImGui.Text(_prf_name)
 	ImGui.Separator()
 	_, _prf.is_bolt_action = ImGui.Checkbox("Bolt Action", _prf.is_bolt_action)
+	ImGui.SameLine()
+	_, _prf.desync_hud = ImGui.Checkbox("Cam desync hud", _prf.desync_hud)
 
 	ImGui.Text("Camera recoil")
 	_, _prf.cam_recoil_power = ImGui.SliderFloat("Cam Recoil Power", _prf.cam_recoil_power, 0.1, 16.0, "%.2f")
-	_, _prf.cam_return_speed = ImGui.SliderFloat("Cam Return Speed", _prf.cam_return_speed, 0.5, 2, "%.2f")
+	_, _prf.cam_return_speed = ImGui.SliderFloat("Cam Return Speed", _prf.cam_return_speed, -1, 2, "%.2f")
 	_, _prf.cam_max_angle = ImGui.SliderFloat("Cam Max Angle", _prf.cam_max_angle, 0, 1, "%.3frad")
-	_, _prf.pitch_frac = ImGui.SliderFloat("Pitch Frac", _prf.pitch_frac, 0, 1, "%.2f")
-	_, _prf.zoom_ratio = ImGui.SliderFloat("Zoom Ratio", _prf.zoom_ratio, 0.25, 2, "%.2f")
 
 	ImGui.Text("Hud Recoil")
 	_, _prf.pull_force = ImGui.SliderFloat("Pull Force", _prf.pull_force, 0.1, 4.0, "%.2f")
 	_, _prf.firing_damping = ImGui.SliderFloat("Spring Damping", _prf.firing_damping, 0.1, 4.0, "%.2f")
+	ImGui.Separator()
+	ImGui.Text("Handling")
+	local handle_speed_change
+	handle_speed_change, _prf.handling_speed =
+		ImGui.SliderFloat("Handling speed", _prf.handling_speed, 0.1, 2.0, "%.2f")
+	if handle_speed_change then
+		fuzz_recoil.set_handling_speed(_prf.handling_speed)
+	end
 
 	ImGui.Text("Shot Impact Force")
 	_, _prf.force_pitch = ImGui.SliderFloat("Pitch", _prf.force_pitch, 0, 60, "%.2f")
@@ -296,17 +309,13 @@ function M.imgui_editor_drawer(_prf, _prf_type, _prf_name)
 	ImGui.BeginDisabled(not _prf.shot_delay_enabled)
 	_, _prf.shot_delay_time = ImGui.SliderFloat("Shot Delay Time", _prf.shot_delay_time, 0.0, 1.0, "%.3f")
 	ImGui.EndDisabled()
-
 	_, _prf.shot_cam_impulse_factor =
 		ImGui.SliderFloat("Shot Cam Impulse Factor", _prf.shot_cam_impulse_factor, 0.0, 5.0, "%.3f")
+
 	ImGui.Separator()
-	ImGui.Text("Handling")
-	local handle_speed_change
-	handle_speed_change, _prf.handling_speed =
-		ImGui.SliderFloat("Handling speed", _prf.handling_speed, 0.1, 2.0, "%.2f")
-	if handle_speed_change then
-		fuzz_recoil.set_handling_speed(_prf.handling_speed)
-	end
+	ImGui.Text("Misc")
+	_, _prf.pitch_frac = ImGui.SliderFloat("Pitch Frac", _prf.pitch_frac, 0, 1, "%.2f")
+	_, _prf.zoom_ratio = ImGui.SliderFloat("Zoom Ratio", _prf.zoom_ratio, 0.25, 2, "%.2f")
 
 	ImGui.EndDisabled()
 	ImGui.PopID()

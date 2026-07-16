@@ -62,14 +62,6 @@ function renderImguiWindow()
 	ImGui.End()
 end
 function renderImguiTab()
-	ImGui.SameLine()
-	if ImGui.Button("ToggleOverlays", vector2():set(100, 25)) then
-		overlay_toggle = not overlay_toggle
-		showPlots = overlay_toggle
-		showLogs = overlay_toggle
-		showInfo = overlay_toggle
-		showProfile = overlay_toggle
-	end
 	ImGui.Text(debug_text1)
 	_, showProfile = ImGui.Checkbox("Profile", showProfile)
 	ImGui.SameLine()
@@ -81,6 +73,14 @@ function renderImguiTab()
 		else
 			debug_text1 = "Failed to load weapon"
 		end
+	end
+	ImGui.SameLine()
+	if ImGui.Button("ToggleOverlays", vector2():set(100, 25)) then
+		overlay_toggle = not overlay_toggle
+		showPlots = overlay_toggle
+		showLogs = overlay_toggle
+		showInfo = overlay_toggle
+		showProfile = overlay_toggle
 	end
 	----------------
 	----------------
@@ -112,12 +112,16 @@ function renderImguiTab()
 			frm.force_reset_recoil()
 		end
 		--NOTE: useful move to root
-		renderProfile()
+		if ImGui.TreeNode("Weapon profile") then
+			renderProfile()
+			ImGui.TreePop()
+		end
 		renderOptions()
 		if ImGui.TreeNode("Impact Marker") then
 			impacts.imgui_settings_drawer()
 			ImGui.TreePop()
 		end
+		renderWeaponSpawner()
 		if not fuzz_dev then
 			ImGui.Text("Not in dev mode,advanced configs disabled")
 			return
@@ -212,14 +216,28 @@ function profile_overlay()
 	local cur_wpn = frm.get_cur_wpn()
 	if expanded and cur_wpn then
 		ImGui.Text(cur_wpn:section() .. ":" .. frm.get_cur_wpn_id())
-		local wpn_info = frm.get_wpn_info()
-		for k, v in pairs(wpn_info) do
-			text_drawer(k, v)
+		if ImGui.TreeNode("Vanilla profile") then
+			local wpn_info = frm.get_wpn_info()
+			for k, v in pairs(wpn_info) do
+				text_drawer(k, v)
+			end
+			ImGui.TreePop()
 		end
 		ImGui.Separator()
-		ImGui.TextColored(vector4():set(0, 1, 0.5, 1), "Converted")
-		for k, v in pairs(frm.get_recoil_profile().raw_profile) do
-			text_drawer(k, v)
+		if ImGui.TreeNode("New profile") then
+			ImGui.TextColored(vector4():set(0, 1, 0.5, 1), "Converted")
+			for k, v in pairs(frm.get_recoil_profile().raw_profile) do
+				text_drawer(k, v)
+			end
+			ImGui.TreePop()
+		end
+		if ImGui.TreeNode("Weapon profile viewer") then
+			ImGui.PushID("prf_viewer")
+			ImGui.BeginDisabled(true)
+			renderProfile()
+			ImGui.EndDisabled()
+			ImGui.PopID()
+			ImGui.TreePop()
 		end
 	end
 	ImGui.End()
@@ -246,6 +264,10 @@ function info_overlay()
 
 		local hdl_power = frm.get_handling_power()
 		ImGui.ProgressBar(hdl_power, vector2():set(-1, 0), string.format("Handling power: %.1f%%", hdl_power * 100))
+		--NOTE: double calc ,but it's ok for debug
+		hdl_power = frm.get_real_handling_power()
+		--stylua: ignore
+		ImGui.ProgressBar(hdl_power, vector2():set(-1, 0), string.format("Real Handling power: %.1f%%", hdl_power * 100))
 		local hdl_fatigue = frm.get_handling_fatigue()
 		ImGui.ProgressBar(hdl_fatigue, vector2():set(-1, 0), string.format("Handling fatigue: %.2f", hdl_fatigue))
 		ImGui.Separator()
@@ -256,66 +278,60 @@ function info_overlay()
 	ImGui.End()
 end
 
-local _prf_type = "raw"
+local _prf_type = 1
 local modi_enabled = true
 local export_to_gamedata = fuzz_dev and true or false
+local force_convert = false
 --TODO:! load and apply modifier
 --don't forget sort this out ,man
 function renderProfile()
-	if ImGui.TreeNode("Weapon profile") then
-		local prf = frm.get_recoil_profile()
-		local wpn_sec = frm.get_cur_wpn():section()
-		ImGui.Text("To input a value directly,You can crlt+click on the slider")
-		if ImGui.Button("Raw") then
-			_prf_type = "raw"
-		end
+	local prf = frm.get_recoil_profile()
+	local wpn_sec = frm.get_cur_wpn():section()
+	ImGui.Text("To input a value directly,You can crlt+click on the slider")
+	ImGui.Text("Profile:")
+	for i, v in ipairs({ "Raw(Edit this)", "Static", "Dynamic" }) do
 		ImGui.SameLine()
-		if ImGui.Button("Static") then
-			_prf_type = "static"
+		if ImGui.RadioButton(v, _prf_type == i) then
+			_prf_type = i
 		end
-		ImGui.SameLine()
-		if ImGui.Button("Dynamic") then
-			_prf_type = "dynamic"
-		end
-		ImGui.SameLine()
-		ImGui.Text(_prf_type)
-		local selected_prf = prf.raw_profile
-		if _prf_type == "static" then
-			selected_prf = prf.static_profile
-		elseif _prf_type == "dynamic" then
-			selected_prf = prf
-		end
-		prf.imgui_editor_drawer(selected_prf, _prf_type, prf.info.name)
-
-		ImGui.Text("Edit without modifier if you want to share your recoil profile")
-		if ImGui.Button("Apply profile", vector2():set(200, 25)) then
-			prf:reload_modifiers()
-			hudrc.cache_profile(prf)
-			camrc.cache_profile(prf)
-		end
-		ImGui.SameLine()
-		modi_enabled_change, modi_enabled = ImGui.Checkbox("With Modifier", modi_enabled)
-		if modi_enabled_change then
-			fuzz_recoil.static_modifiers.enabled(modi_enabled)
-			fuzz_recoil.dynamic_modifiers.enabled(modi_enabled)
-		end
-		ImGui.Text(export_hint)
-		if ImGui.Button("Export to LTX", vector2():set(200, 25)) then
-			export_profile_to_ltx(prf, wpn_sec, export_to_gamedata)
-		end
-		ImGui.SameLine()
-		export_folder_change, export_to_gamedata = ImGui.Checkbox("Gamedata", export_to_gamedata)
-		if export_folder_change then
-			local dest = export_to_gamedata and "gamedata" or "game's bin"
-			export_hint = string.format("Export profile to your %s folder", dest)
-		end
-		ImGui.SameLine()
-		if ImGui.Button("Reload Profile", vector2():set(200, 25)) then
-			logger.dbg(wpn_sec)
-			frm.force_recheck_weapon()
-		end
-		ImGui.TreePop()
 	end
+	local available_prf = { prf.raw_profile, prf.static_profile, prf }
+	---@diagnostic disable: param-type-mismatch
+	prf.imgui_editor_drawer(available_prf[_prf_type], _prf_type, prf.info.name)
+
+	ImGui.Separator()
+	ImGui.Text("Edit without modifier if you want to share your recoil profile")
+	if ImGui.Button("Apply profile", vector2():set(200, 25)) then
+		prf:reload_modifiers()
+		hudrc.cache_profile(prf)
+		camrc.cache_profile(prf)
+	end
+	---@diagnostic enable: param-type-mismatch
+	ImGui.SameLine()
+	modi_enabled_change, modi_enabled = ImGui.Checkbox("With Modifier", modi_enabled)
+	if modi_enabled_change then
+		fuzz_recoil.static_modifiers.enabled(modi_enabled)
+		fuzz_recoil.dynamic_modifiers.enabled(modi_enabled)
+	end
+	ImGui.Text(export_hint)
+	if ImGui.Button("Export to LTX", vector2():set(150, 25)) then
+		export_profile_to_ltx(prf, wpn_sec, export_to_gamedata)
+	end
+	ImGui.SameLine()
+	export_folder_change, export_to_gamedata = ImGui.Checkbox("Gamedata", export_to_gamedata)
+	if export_folder_change then
+		local dest = export_to_gamedata and "gamedata" or "game's bin"
+		export_hint = string.format("Export profile to your %s folder", dest)
+	end
+	ImGui.SameLine()
+	if ImGui.Button("Reload Profile", vector2():set(150, 25)) then
+		logger.dbg(wpn_sec)
+		fuzz_recoil_profile.set_force_convert(force_convert)
+		frm.force_recheck_weapon()
+		fuzz_recoil_profile.set_force_convert(false)
+	end
+	ImGui.SameLine()
+	_, force_convert = ImGui.Checkbox("Convert", force_convert)
 end
 function renderOptions()
 	if ImGui.TreeNode("Options") then
@@ -332,7 +348,6 @@ function renderOptions()
 		_, options.use_bloom = ImGui.Checkbox("Fire Bloom", options.use_bloom)
 		ImGui.Text("Vanilla data extras")
 		_, options.use_pitch_frac = ImGui.Checkbox("Pitch Frac Variance", options.use_pitch_frac)
-		_, options.use_cam_max_angle = ImGui.Checkbox("Cam Max Angle Cap", options.use_cam_max_angle)
 		_, options.use_addon_ammo_koefs = ImGui.Checkbox("Addon & Ammo Koefs", options.use_addon_ammo_koefs)
 		_, options.use_zoom_ratio = ImGui.Checkbox("ADS Zoom Ratio", options.use_zoom_ratio)
 		-- _, options.recoil_v_scale =
@@ -364,24 +379,61 @@ function renderExtra()
 		db.actor:change_satiety(1)
 	end
 	ImGui.SameLine()
-	_, inf_weight = ImGui.Checkbox("Wgt", inf_weight)
+	change_weight, inf_weight = ImGui.Checkbox("Wgt", inf_weight)
+	if change_weight then
+		if inf_weight then
+			weight.add_weight("fuzz_cheat", 8888)
+		else
+			weight.remove_weight("fuzz_cheat")
+		end
+	end
 	ImGui.SameLine()
 	_, cheat_mag = ImGui.Checkbox("InfAmmo", cheat_mag)
 end
-function renderConfig()
-	ImGui.TextColored(vector4():set(1, 0, 0, 1), "vvvvv DO NOT TOUCH THIS vvvvv")
-	if ImGui.TreeNode("Config") then
-		ImGui.TextColored(vector4():set(1, 1, 0, 1), "UNLESS YOU KNOW WHAT YOU ARE DOING")
-		frm.imgui_config_drawer()
-		camrc.imgui_config_drawer()
-		ImGui.Separator()
-		hudrc.imgui_config_drawer()
-		ImGui.Separator()
-		if ImGui.Button("Dump All Weapon datas(need json.lua)", vector2():set(-1, 25)) then
-			utils.get_all_weapon_sections()
+local allowed_kinds = {
+	w_pistol = false,
+	w_rifle = false,
+	w_shotgun = false,
+	w_sniper = false,
+	w_smg = false,
+}
+function renderWeaponSpawner()
+	if ImGui.TreeNode("Weapon Spawner") then
+		ImGui.Text("Kind")
+		local i = 1
+		for k, v in pairs(allowed_kinds) do
+			if i ~= 4 then
+				ImGui.SameLine()
+			end
+			_, allowed_kinds[k] = ImGui.Checkbox(k, v)
+			i = i + 1
+		end
+		ImGui.SameLine()
+		if ImGui.Button("Toogle all", vector2():set(120, 25)) then
+			for k, v in pairs(allowed_kinds) do
+				allowed_kinds[k] = not v
+			end
+		end
+		if ImGui.Button("Spawn Weapons", vector2():set(120, 25)) then
+			utils.get_all_weapon_sections(allowed_kinds, true)
+		end
+		ImGui.SameLine()
+		if ImGui.Button("Dump  Weapons datas (need json.lua)", vector2():set(-1, 25)) then
+			utils.get_all_weapon_sections(allowed_kinds)
 		end
 		ImGui.TreePop()
 	end
+end
+function renderConfig()
+	-- ImGui.TextColored(vector4():set(1, 0, 0, 1), "vvvvv DO NOT TOUCH THIS vvvvv")
+	-- if ImGui.TreeNode("Config") then
+	-- ImGui.TextColored(vector4():set(1, 1, 0, 1), "UNLESS YOU KNOW WHAT YOU ARE DOING")
+	frm.imgui_config_drawer()
+	camrc.imgui_config_drawer()
+	ImGui.Separator()
+	hudrc.imgui_config_drawer()
+	-- 	ImGui.TreePop()
+	-- end
 	--TODO:refactor this to base
 	ImGui.Separator()
 end
@@ -466,20 +518,19 @@ function M.on_game_start()
 	end
 	hudrc = fuzz_recoil_hud_recoil
 	RegisterScriptCallback("actor_on_weapon_fired", on_fire)
-	RegisterScriptCallback("actor_on_update", on_update)
+	RegisterScriptCallback("actor_on_first_update", actor_on_first_update)
+	-- RegisterScriptCallback("actor_on_update", on_update)
 	log("Fuzz:Dev mode enabled")
 end
-function on_update()
-	--FIXME: something is changing my weight
-	local player = db.actor
+function actor_on_first_update()
 	if inf_weight then
-		player:set_actor_max_weight(8888)
-		player:set_actor_max_walk_weight(8888)
-		player:update_weight()
+		weight.add_weight("fuzz_cheat", 8888)
 	end
 end
 function on_fire()
 	if cheat_mag then
-		fuzz_recoil.get_cur_wpn():cast_Weapon():SetAmmoElapsed(30)
+		cast_wpn = fuzz_recoil.get_cur_wpn():cast_Weapon()
+		cast_wpn:SetAmmoElapsed(30)
+		cast_wpn:SetMisfire(false)
 	end
 end
