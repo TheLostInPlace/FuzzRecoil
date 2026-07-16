@@ -104,6 +104,8 @@ function M.on_mcm_load()
             { id = "handling_speed_scale", type = "track", val = 2, min = -0.9, max = 2.0, step = 0.05, def = defaults.handling_speed_scale },
             { id = "impulse_fatigue_ratio", type = "track", val = 2, min = 0.0, max = 0.3, step = 0.01, def = defaults.impulse_fatigue_ratio },
             { id = "use_zoom_ratio", type = "check", val = 1, def = defaults.use_zoom_ratio },
+            { id = "use_punch", type = "check", val = 1, def = defaults.use_punch },
+            { id = "punch_legacy", type = "check", val = 1, def = defaults.punch_legacy },
             { id = "bolt_cam_group_line", type = "line" },
             { id = "cam_drag", type = "track", val = 2, min = 8, max = 20, step = 1, def = defaults.cam_drag },
             { id = "bolt_action_Y_lift", type = "check", val = 1, def = defaults.bolt_action_Y_lift },
