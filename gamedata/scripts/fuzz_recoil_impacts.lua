@@ -94,8 +94,10 @@ function M.draw()
 	end
 	local now = time_global()
 	local dev = device()
+	---@diagnostic disable: need-check-nil, undefined-field
 	local sx = dev.width / 1024
 	local sy = dev.height / 768
+	---@diagnostic enable: need-check-nil, undefined-field
 	--expire hot marks into ghosts
 	local keep = {}
 	for _, m in ipairs(marks) do

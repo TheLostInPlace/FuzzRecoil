@@ -46,6 +46,7 @@ function M.export_internal_log()
 	local file = io.open(filename, "w")
 	if not file then
 		M.err("Failed to open file when exporting logs")
+		return
 	end
 	file:write(log_text)
 	file:close()

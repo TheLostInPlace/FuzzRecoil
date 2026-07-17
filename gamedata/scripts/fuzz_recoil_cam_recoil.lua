@@ -94,7 +94,7 @@ function M.init(mode)
 	end
 	M.stop()
 end
----@param profile FuzzRecoilProfile
+---@param profile fuzz_recoil_profile
 function M.cache_profile(profile)
 	lift_force = profile.cam_recoil_power
 	impulse_factor = profile.shot_cam_impulse_factor
@@ -145,8 +145,7 @@ function M.update_exp(dt)
 	set_player_angle(m_angle)
 end
 function M.update_spring(dt)
-	--TODO: don't forget me~~~
-	m_angle, m_vel = apply_spring(m_angle, m_vel, dt, debug_var.float_x1)
+	m_angle, m_vel = utils.apply_spring(m_angle, m_vel, dt, fuzz_recoil.debug_var.float_x1)
 	set_player_angle(m_angle)
 end
 --TODO: enum but not here,it should be in main script so every module can use it

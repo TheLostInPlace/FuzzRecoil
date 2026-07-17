@@ -9,15 +9,44 @@ local Profile = fuzz_recoil_profile
 local options = fuzz_recoil_mcm
 local camrc = fuzz_recoil_cam_recoil.awake()
 local hudrc = fuzz_recoil_hud_recoil.awake()
+local punchrc = fuzz_recoil_punch.awake()
+
 --NOTE:update when swithcing wepaon
 M.static_modifiers = fuzz_recoil_modifier:new()
 --NOTE:update before fire
 M.dynamic_modifiers = fuzz_recoil_modifier:new()
+
 ---@type fuzz_recoil_profile
 local m_profile = Profile:new()
-local punchrc = fuzz_recoil_punch.awake()
+---@class fuzz_recoil_wpn_info
+local m_wpn_info = {
+	--NOTE: upgrade needed
+	cam_dispersion = 0,
+	cam_step_angle_horz = 0,
+	cam_dispersion_inc = 0,
+	--NOTE: always needed
+	zoom_cam_dispersion = 0,
+	zoom_cam_dispersion_inc = 0,
+	rpm = 600,
+	cam_relax_speed = 0,
+	mag_size = 30,
+	--NOTE: feature needed
+	cam_dispersion_frac = 0.7,
+	addon_cam_k = 1,
+	addon_cam_inc_k = 1,
+	inv_weight = 0,
+}
+
+---@class CachedWeaponEntry
+---@field profile fuzz_recoil_profile
+---@field wpn_info fuzz_recoil_wpn_info
+
+---@type CachedWeaponEntry[]
+local cached_weapons = {}
+
 ------------
 local cur_wpn = nil
+---@type CWeapon
 local cur_cast_wpn = nil
 local player = nil
 --------- state
@@ -81,29 +110,11 @@ local idle_handling_ease = utils.simple_ease:new(-1, -1, 0.2, 6)
 --NOGUI
 sniper_idle_handling = { offset = 0.2, intensity = 0.8 }
 
-local wpn_info = {
-	--NOTE: upgrade needed
-	cam_dispersion = 0,
-	cam_step_angle_horz = 0,
-	cam_dispersion_inc = 0,
-	--NOTE: always needed
-	zoom_cam_dispersion = 0,
-	zoom_cam_dispersion_inc = 0,
-	rpm = 600,
-	cam_relax_speed = 0,
-	mag_size = 30,
-	--NOTE: feature needed
-	cam_dispersion_frac = 0.7,
-	addon_cam_k = 1,
-	addon_cam_inc_k = 1,
-	inv_weight = 0,
-}
-
 --------------------
 ---Public Getter
 --------------------
 function M.get_wpn_info()
-	return wpn_info
+	return m_wpn_info
 end
 function M.get_recoil_profile()
 	return m_profile
@@ -312,10 +323,10 @@ function restore_vanilla_cam_recoil()
 	--NOTE: setters take raw radians, wpn_info is kept in ini degrees
 	set_vanilla_cam_recoil(
 		cur_cast_wpn,
-		math.rad(wpn_info.cam_dispersion),
-		math.rad(wpn_info.cam_dispersion_inc),
-		math.rad(wpn_info.zoom_cam_dispersion),
-		math.rad(wpn_info.zoom_cam_dispersion_inc)
+		math.rad(m_wpn_info.cam_dispersion),
+		math.rad(m_wpn_info.cam_dispersion_inc),
+		math.rad(m_wpn_info.zoom_cam_dispersion),
+		math.rad(m_wpn_info.zoom_cam_dispersion_inc)
 	)
 end
 function set_vanilla_cam_recoil(cast_wpn, cam_disp, cam_disp_inc, zoom_cam_disp, zoom_cam_dis_inc)
@@ -331,10 +342,23 @@ end
 ---!!!!! DO NOT CALL THIS!!!!!!
 ---NOTE:no nil check for cast_wpn
 function init_weapon(wpn_sec)
-	collect_wpn_info(wpn_sec)
+	local cache = cached_weapons[cur_wpn_id]
+	if cache then
+		logger.dbg("use cached(%s) for %s", cur_wpn_id, wpn_sec)
+		m_profile = cache.profile
+		m_wpn_info = cache.wpn_info
+	else
+		logger.dbg("create cached(%s) for %s", cur_wpn_id, wpn_sec)
+		collect_wpn_info(wpn_sec)
+		m_profile = fuzz_recoil_profile:new():load(wpn_sec, m_wpn_info)
+		cached_weapons[cur_wpn_id] = {
+			wpn_info = m_wpn_info,
+			profile = m_profile,
+		}
+	end
 	--TODO: better entry point needed
 	init_static_modifiers()
-	m_profile = fuzz_recoil_profile:new():load(wpn_sec, wpn_info)
+	--TODO:!!! check upgrades here, everytime
 	m_profile:apply_static_modifiers()
 	remove_vanilla_cam_recoil()
 
@@ -357,7 +381,6 @@ function init_weapon(wpn_sec)
 	camrc.init(m_profile.shot_delay_enabled and "cubic" or "exp")
 	hudrc.init(wpn_sec, cur_cast_wpn)
 	punchrc.init()
-
 	addon_sig = get_addon_sig()
 	logger.dbg("Initialize weapon")
 end
@@ -373,22 +396,22 @@ function collect_wpn_info(wpn_sec)
 	-- end
 end
 function get_upgrade_wpn_info()
-	wpn_info.cam_dispersion = math.deg(cur_cast_wpn:GetCamDispersion())
-	wpn_info.cam_dispersion_inc = math.deg(cur_cast_wpn:GetCamDispersionInc())
-	wpn_info.cam_step_angle_horz = math.deg(cur_cast_wpn:GetCamStepAngleHorz())
+	m_wpn_info.cam_dispersion = math.deg(cur_cast_wpn:GetCamDispersion())
+	m_wpn_info.cam_dispersion_inc = math.deg(cur_cast_wpn:GetCamDispersionInc())
+	m_wpn_info.cam_step_angle_horz = math.deg(cur_cast_wpn:GetCamStepAngleHorz())
 end
 function get_basic_wpn_info()
-	wpn_info.zoom_cam_dispersion = math.deg(cur_cast_wpn:GetZoomCamDispersion())
-	wpn_info.zoom_cam_dispersion_inc = math.deg(cur_cast_wpn:GetZoomCamDispersionInc())
-	wpn_info.rpm = cur_cast_wpn:RealRPM()
-	wpn_info.mag_size = cur_cast_wpn:GetAmmoMagSize()
-	wpn_info.cam_relax_speed = math.deg(cur_cast_wpn:GetCamRelaxSpeed())
+	m_wpn_info.zoom_cam_dispersion = math.deg(cur_cast_wpn:GetZoomCamDispersion())
+	m_wpn_info.zoom_cam_dispersion_inc = math.deg(cur_cast_wpn:GetZoomCamDispersionInc())
+	m_wpn_info.rpm = cur_cast_wpn:RealRPM()
+	m_wpn_info.mag_size = cur_cast_wpn:GetAmmoMagSize()
+	m_wpn_info.cam_relax_speed = math.deg(cur_cast_wpn:GetCamRelaxSpeed())
 end
 function get_feat_wpn_info()
 	--NOTE: dispersion_frac is a unitless fraction, no deg conversion
-	wpn_info.cam_dispersion_frac = cur_cast_wpn:GetCamDispersionFrac()
+	m_wpn_info.cam_dispersion_frac = cur_cast_wpn:GetCamDispersionFrac()
 	--live weight includes attached addons
-	wpn_info.inv_weight = cur_cast_wpn:Weight()
+	m_wpn_info.inv_weight = cur_cast_wpn:Weight()
 	collect_addon_koefs()
 end
 function read_upgrade_wpn_info(wpn_sec)
@@ -445,7 +468,7 @@ function M.check_current_weapon()
 		cur_wpn_id = -1
 		return false
 	end
-	wpn_info.kind = kind
+	m_wpn_info.kind = kind
 	init_weapon(wpn_sec)
 	return true
 end
@@ -463,11 +486,12 @@ local function get_addon_koef(sec, key)
 	end
 	return utils.math_clamp(utils.get_float(sec, key, 1), 0.01, 2.0)
 end
+---@diagnostic disable: need-check-nil
 --NOTE: engine multiplies cam recoil by attached addon section koefs (EffectorShot.cpp)
 function collect_addon_koefs()
 	if not options.use_addon_ammo_koefs then
-		wpn_info.addon_cam_k = 1
-		wpn_info.addon_cam_inc_k = 1
+		m_wpn_info.addon_cam_k = 1
+		m_wpn_info.addon_cam_inc_k = 1
 		return
 	end
 	local cam_k, cam_inc_k = 1, 1
@@ -482,8 +506,8 @@ function collect_addon_koefs()
 			cam_inc_k = cam_inc_k * get_addon_koef(addon[2], "cam_dispersion_inc_k")
 		end
 	end
-	wpn_info.addon_cam_k = cam_k
-	wpn_info.addon_cam_inc_k = cam_inc_k
+	m_wpn_info.addon_cam_k = cam_k
+	m_wpn_info.addon_cam_inc_k = cam_inc_k
 end
 --k_cam_dispersion of the selected ammo type, default 1 unclamped like engine
 --NOTE: engine uses the chambered round, no lua export, selected type is the best approximation
@@ -499,6 +523,7 @@ function get_ammo_cam_k()
 	end)
 	return ammo_k
 end
+---@diagnostic disable: need-check-nil
 --refresh per shot so addon attach, ammo switch and ads state apply without a weapon re draw
 function update_shot_cam_k()
 	is_ads = (cur_cast_wpn and cur_cast_wpn:IsZoomed()) and true or false
@@ -507,7 +532,7 @@ function update_shot_cam_k()
 		return
 	end
 	collect_addon_koefs()
-	shot_cam_k = wpn_info.addon_cam_k * get_ammo_cam_k()
+	shot_cam_k = m_wpn_info.addon_cam_k * get_ammo_cam_k()
 end
 --attached addon fingerprint, a change means the engine reloaded hud measures
 function get_addon_sig()
@@ -652,3 +677,6 @@ M.debug_var = {
 	float_x1 = 0,
 	float_x2 = 0,
 }
+function M.log_cached_weapons()
+	logger.print_table(cached_weapons, "cached weapons")
+end
