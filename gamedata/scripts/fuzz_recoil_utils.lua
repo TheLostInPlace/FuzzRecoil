@@ -4,6 +4,9 @@ _G.fuzz_recoil_utils = M
 local logger = fuzz_recoil_logger
 local frm = fuzz_recoil
 
+---------------
+---Engine
+--------------
 function M.get_string(sec, param, def)
 	return SYS_GetParam(0, sec, param, def ~= nil and def or "")
 end
@@ -17,6 +20,75 @@ function M.get_bool(sec, param, def)
 end
 function M.get_float(sec, param, def)
 	return SYS_GetParam(2, sec, param, def ~= nil and def or 0.0)
+end
+--NOTE: recusive needed?
+function M.get_base_weapon(wpn_sec)
+	local parent_section = ini_sys:r_string_ex(wpn_sec, "parent_section")
+	if parent_section and wpn_sec ~= parent_section then
+		return M.get_base_weapon(parent_section)
+	else
+		return wpn_sec
+	end
+end
+
+---------------
+---math
+--------------
+function M.math_clamp(val, min, max)
+	return math.max(min, math.min(max, val))
+end
+function M.lerp_in(val, from, to)
+	return M.math_clamp(M.lerp(val, from, to), from, to)
+end
+function M.lerp(val, from, to)
+	return val * (to - from) + from
+end
+function M.range_lerp(val, from, to, offset, clamp)
+	if not offset then
+		offset = 0
+	end
+	if clamp then
+		val = M.math_clamp(val, from.min, from.max)
+	end
+	local range = from.max - from.min
+	if range == 0 then
+		return to.min + offset
+	end
+	return (val - from.min) / range * (to.max - to.min) + to.min + offset
+end
+function M.vector_clamp_with_sign(val, min)
+	local flag = val < 0
+	local sign = flag and -1 or 1
+	local magnitude = math.max(math.abs(val), min)
+	return magnitude * sign
+end
+function M.vector_lerp(from, to, t)
+	return vector():set(from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t, from.z + (to.z - from.z) * t)
+end
+function M.vector_to_string(vec)
+	return string.format("x:%.4f,y:%.4f,z:%.4f", vec.x, vec.y, vec.z)
+end
+---------------
+---Physics and ease
+--------------
+
+---@param raw_val any
+---@param vel number
+---@param dt number delta time
+---@param spring number
+---@param damping? number critical damping if nil
+---@return number updated_val
+---@return number updated_vel
+function M.apply_spring(raw_val, vel, dt, spring, damping)
+	if not damping then
+		--Calculate critical damping
+		damping = math.sqrt(spring) * 2
+	end
+	--TODO: switch to solution for better fps adaption
+	dt = math.min(dt, 1 / 30)
+	local acc = raw_val * -spring - vel * damping
+	vel = vel + acc * dt
+	return raw_val + vel * dt, vel
 end
 
 ---@class simple_ease
@@ -63,52 +135,6 @@ function M.simple_ease:reset()
 	self.offset = self.offset_def
 	self.intensity = self.intensity_def
 end
-
-function M.math_clamp(val, min, max)
-	return math.max(min, math.min(max, val))
-end
-function M.lerp_in(val, from, to)
-	return M.math_clamp(M.lerp(val, from, to), from, to)
-end
-function M.lerp(val, from, to)
-	return val * (to - from) + from
-end
-function M.range_lerp(val, from, to, offset, clamp)
-	if not offset then
-		offset = 0
-	end
-	if clamp then
-		val = M.math_clamp(val, from.min, from.max)
-	end
-	local range = from.max - from.min
-	if range == 0 then
-		return to.min + offset
-	end
-	return (val - from.min) / range * (to.max - to.min) + to.min + offset
-end
-function M.vector_clamp_with_sign(val, min)
-	local flag = val < 0
-	local sign = flag and -1 or 1
-	local magnitude = math.max(math.abs(val), min)
-	return magnitude * sign
-end
-function M.vector_lerp(from, to, t)
-	return vector():set(from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t, from.z + (to.z - from.z) * t)
-end
-function M.vector_to_string(vec)
-	return string.format("x:%.4f,y:%.4f,z:%.4f", vec.x, vec.y, vec.z)
-end
-
---NOTE: recusive needed?
-function M.get_base_weapon(wpn_sec)
-	local parent_section = ini_sys:r_string_ex(wpn_sec, "parent_section")
-	if parent_section and wpn_sec ~= parent_section then
-		return M.get_base_weapon(parent_section)
-	else
-		return wpn_sec
-	end
-end
-
 --===========================
 --Dump weapons
 --===========================
