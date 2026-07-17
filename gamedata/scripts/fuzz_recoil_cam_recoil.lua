@@ -94,7 +94,7 @@ function M.init(mode)
 	end
 	M.stop()
 end
----@param profile FuzzRecoilProfile
+---@param profile fuzz_recoil_profile
 function M.cache_profile(profile)
 	lift_force = profile.cam_recoil_power
 	impulse_factor = profile.shot_cam_impulse_factor

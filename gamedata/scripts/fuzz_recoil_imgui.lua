@@ -502,6 +502,7 @@ function export_profile_to_ltx(input_profile, wpn_sec, folder_flag)
 	if not file then
 		export_hint = "Failed to open file when exporting"
 		logger.err(export_hint)
+		return
 	end
 
 	local content = ""

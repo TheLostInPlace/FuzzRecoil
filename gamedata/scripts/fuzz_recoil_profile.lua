@@ -11,11 +11,6 @@ local logger = fuzz_recoil_logger
 ---object
 ---------------
 ---@class fuzz_recoil_profile
-local M = {}
-_G.fuzz_recoil_profile = M
-M.__index = M
-
----@class FuzzRecoilProfile
 ---@field cam_recoil_power number
 ---@field cam_return_speed number
 ---@field cam_max_angle number
@@ -42,10 +37,12 @@ M.__index = M
 ---@field shot_cam_impulse_factor number
 ---
 ---@field fire_interval number
+local M = {}
+_G.fuzz_recoil_profile = M
+M.__index = M
 
 --WARN:don forget the convert_list,i know this sucks
 
----@type FuzzRecoilProfile
 local default_profile = {
 
 	cam_recoil_power = 4,
@@ -269,7 +266,7 @@ end
 ---IMGUI
 ---------------
 
----@param _prf FuzzRecoilProfile
+---@param _prf fuzz_recoil_profile
 function M.imgui_editor_drawer(_prf, _prf_type, _prf_name)
 	ImGui.PushID("profile" .. _prf_type)
 	ImGui.BeginDisabled(_prf_type > 1)

@@ -345,7 +345,7 @@ end
 --------------
 --Spring Mode
 --------------
-local function on_fire_spring(handling_power)
+local function on_fire_spring(handling_power, _, _, _)
 	-- NOTE: vertical recoil should come from cam recoil  no this
 	-- but we could turn this into an visual effect.
 	-- local pitch_kick_enhancer = 1
@@ -766,28 +766,3 @@ function M.renderHudControls()
 		apply_cur_hud_hand()
 	end
 end
----
------------------
----toilet
------------------
--- NOTE: have to make is work,since we are doing different movement on the y Axis
----FIXME: duck duck tell me, why this is not working.
--- function apply_spring_vec(raw_vec, vel_vec, dt, spring, damping)
--- 	apply_spring(raw_vec.x, vel_vec.x, dt, spring, damping)
--- 	apply_spring(raw_vec.y, vel_vec.y, dt, spring, damping)
--- 	-- apply_spring(raw_vec.z, vel_vec.z, dt, spring, damping)
--- end
--- function apply_spring_vec_with_decay(raw_vec, vel_vec, dt, spring, damping)
--- 	if not damping then
--- 		--Calculate critical damping
--- 		damping = math.sqrt(spring) * 2
--- 	end
--- 	--TODO: switch to solution
--- 	dt = math.min(dt, 1 / 30)
--- 	local acc = vector():set(raw_vec):mul(-spring):mul(dt)
--- 	vel_vec:add(dt)
--- 	local damping_factor = math.max(0, 1 - damping * dt)
--- 	-- vel_vec:mul(decay factor)
--- 	vel_vec:mul(damping_factor)
--- 	raw_vec:add(vector():set(vel_vec):mul(dt))
--- end

@@ -4,3 +4,4 @@ gamedata/scripts/lua_help_ex.d.lua
 gamedata/scripts/xray_monolith_stubs.lua
 gamedata/scripts/json.lua
 output
+gamedata/scripts/xray.d.lua

@@ -20,6 +20,13 @@ function M.get_float(sec, param, def)
 end
 
 ---@class simple_ease
+---@field base_speed number
+---@field speed_mul number
+---@field offset number
+---@field offset_def number
+---@field intensity number
+---@field intensity_def number
+---@field is_ease_in string
 M.simple_ease = {}
 M.simple_ease.__index = M.simple_ease
 ---@return simple_ease
@@ -73,17 +80,6 @@ function M.range_lerp(val, from, to, offset, clamp)
 	if clamp then
 		val = M.math_clamp(val, from.min, from.max)
 	end
-	-- logger.dbg(
-	-- 	string.format(
-	-- 		"val:%.2f,from_min:%.2f,from_max:%.2f,to_min:%.2f,to_max:%.2f,offset:%.2f",
-	-- 		val,
-	-- 		from.min,
-	-- 		from.max,
-	-- 		to.min,
-	-- 		to.max,
-	-- 		offset
-	-- 	)
-	-- )
 	local range = from.max - from.min
 	if range == 0 then
 		return to.min + offset
@@ -160,6 +156,7 @@ function M.get_all_weapon_sections(allowed_kinds, spawn)
 	local f = io.open("dumped_weapons.json", "w")
 	if not f then
 		logger.err("Failed to open file")
+		return
 	end
 	f:write(json.encode(dumped_weapons))
 	f:close()
@@ -211,80 +208,3 @@ function iterator(section)
 		::continue::
 	end
 end
-
---NOTE: this could slow down the whole game,i'll have to do the refator
---i just left a code here to remind me this is a bad idea
--- function fuzz_utils.init_vector_extensions()
--- 	local temp_vec = vector()
--- 	local mt = getmetatable(temp_vec)
--- 	if mt then
--- 		local ori_add = mt.__add
--- 		local ori_sub = mt.__sub
--- 		local ori_div = mt.__div
--- 		local ori_unm = mt.__unm
--- 		local ori_mul = mt.__mul
---
--- 		local function is_vector(v)
--- 			return type(v) == "userdata" and v.x ~= nil
--- 		end
---
--- 		mt.__add = function(a, b)
--- 			if is_vector(a) and is_vector(b) then
--- 				return vector():set(a.x + b.x, a.y + b.y, a.z + b.z)
--- 			elseif ori_add then
--- 				return ori_add(a, b)
--- 			else
--- 				error(string.format("Unsupported operator(+) for %s and %s", tostring(a), tostring(b)))
--- 			end
--- 		end
---
--- 		mt.__sub = function(a, b)
--- 			if is_vector(a) and is_vector(b) then
--- 				return vector():set(a.x - b.x, a.y - b.y, a.z - b.z)
--- 			elseif ori_sub then
--- 				return ori_sub(a, b)
--- 			else
--- 				error(string.format("Unsupported operator(-) for %s and %s", tostring(a), tostring(b)))
--- 			end
--- 		end
---
--- 		mt.__mul = function(a, b)
--- 			if type(a) == "number" and is_vector(b) then
--- 				return vector():set(b.x * a, b.y * a, b.z * a)
--- 			elseif is_vector(a) and type(b) == "number" then
--- 				return vector():set(a.x * b, a.y * b, a.z * b)
--- 			elseif is_vector(a) and is_vector(b) then
--- 				return vector():set(a.x * b.x, a.y * b.y, a.z * b.z)
--- 			elseif ori_mul then
--- 				return ori_mul(a, b)
--- 			else
--- 				error(string.format("Unsupported operator(*) for %s and %s", tostring(a), tostring(b)))
--- 			end
--- 		end
---
--- 		mt.__div = function(a, b)
--- 			if is_vector(a) and type(b) == "number" then
--- 				if b == 0 then
--- 					error("divided by 0!")
--- 				end
--- 				return vector():set(a.x / b, a.y / b, a.z / b)
--- 			elseif ori_div then
--- 				return ori_div(a, b)
--- 			else
--- 				error(string.format("Unsupported operator(/) for %s and %s", tostring(a), tostring(b)))
--- 			end
--- 		end
---
--- 		mt.__unm = function(a)
--- 			if is_vector(a) then
--- 				return vector():set(-a.x, -a.y, -a.z)
--- 			elseif ori_unm then
--- 				return ori_unm(a)
--- 			else
--- 				error("Unsupported type to negate: " .. tostring(a))
--- 			end
--- 		end
--- 	else
--- 		error("Can't find vector metatable")
--- 	end
--- end

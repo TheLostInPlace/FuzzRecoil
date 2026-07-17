@@ -9,6 +9,8 @@ local Profile = fuzz_recoil_profile
 local options = fuzz_recoil_mcm
 local camrc = fuzz_recoil_cam_recoil.awake()
 local hudrc = fuzz_recoil_hud_recoil.awake()
+local punchrc = fuzz_recoil_punch.awake()
+
 --NOTE:update when swithcing wepaon
 M.static_modifiers = fuzz_recoil_modifier:new()
 --NOTE:update before fire
@@ -18,6 +20,7 @@ local m_profile = Profile:new()
 local punchrc = fuzz_recoil_punch.awake()
 ------------
 local cur_wpn = nil
+---@type CWeapon
 local cur_cast_wpn = nil
 local player = nil
 --------- state
@@ -463,6 +466,7 @@ local function get_addon_koef(sec, key)
 	end
 	return utils.math_clamp(utils.get_float(sec, key, 1), 0.01, 2.0)
 end
+---@diagnostic disable: need-check-nil
 --NOTE: engine multiplies cam recoil by attached addon section koefs (EffectorShot.cpp)
 function collect_addon_koefs()
 	if not options.use_addon_ammo_koefs then
@@ -499,6 +503,7 @@ function get_ammo_cam_k()
 	end)
 	return ammo_k
 end
+---@diagnostic disable: need-check-nil
 --refresh per shot so addon attach, ammo switch and ads state apply without a weapon re draw
 function update_shot_cam_k()
 	is_ads = (cur_cast_wpn and cur_cast_wpn:IsZoomed()) and true or false
