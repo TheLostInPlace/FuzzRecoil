@@ -15,8 +15,35 @@ local punchrc = fuzz_recoil_punch.awake()
 M.static_modifiers = fuzz_recoil_modifier:new()
 --NOTE:update before fire
 M.dynamic_modifiers = fuzz_recoil_modifier:new()
+
 ---@type fuzz_recoil_profile
 local m_profile = Profile:new()
+---@class fuzz_recoil_wpn_info
+local wpn_info = {
+	--NOTE: upgrade needed
+	cam_dispersion = 0,
+	cam_step_angle_horz = 0,
+	cam_dispersion_inc = 0,
+	--NOTE: always needed
+	zoom_cam_dispersion = 0,
+	zoom_cam_dispersion_inc = 0,
+	rpm = 600,
+	cam_relax_speed = 0,
+	mag_size = 30,
+	--NOTE: feature needed
+	cam_dispersion_frac = 0.7,
+	addon_cam_k = 1,
+	addon_cam_inc_k = 1,
+	inv_weight = 0,
+}
+
+---@class CachedWeaponEntry
+---@field profile fuzz_recoil_profile
+---@field wpn_info fuzz_recoil_wpn_info
+
+---@type CachedWeaponEntry[]
+local cached_weapons = {}
+
 local punchrc = fuzz_recoil_punch.awake()
 ------------
 local cur_wpn = nil
@@ -83,24 +110,6 @@ local firing_handling_ease = utils.simple_ease:new(1, 1, 0.2, 4)
 local idle_handling_ease = utils.simple_ease:new(-1, -1, 0.2, 6)
 --NOGUI
 sniper_idle_handling = { offset = 0.2, intensity = 0.8 }
-
-local wpn_info = {
-	--NOTE: upgrade needed
-	cam_dispersion = 0,
-	cam_step_angle_horz = 0,
-	cam_dispersion_inc = 0,
-	--NOTE: always needed
-	zoom_cam_dispersion = 0,
-	zoom_cam_dispersion_inc = 0,
-	rpm = 600,
-	cam_relax_speed = 0,
-	mag_size = 30,
-	--NOTE: feature needed
-	cam_dispersion_frac = 0.7,
-	addon_cam_k = 1,
-	addon_cam_inc_k = 1,
-	inv_weight = 0,
-}
 
 --------------------
 ---Public Getter
@@ -334,10 +343,23 @@ end
 ---!!!!! DO NOT CALL THIS!!!!!!
 ---NOTE:no nil check for cast_wpn
 function init_weapon(wpn_sec)
-	collect_wpn_info(wpn_sec)
+	local cache = cached_weapons[cur_wpn_id]
+	if cache then
+		logger.dbg("use cached(%s) for %s", cur_wpn_id, wpn_sec)
+		m_profile = cache.profile
+		wpn_info = cache.wpn_info
+	else
+		logger.dbg("create cached(%s) for %s", cur_wpn_id, wpn_sec)
+		collect_wpn_info(wpn_sec)
+		m_profile = fuzz_recoil_profile:new():load(wpn_sec, wpn_info)
+		cached_weapons[cur_wpn_id] = {
+			wpn_info = wpn_info,
+			profile = m_profile,
+		}
+	end
 	--TODO: better entry point needed
 	init_static_modifiers()
-	m_profile = fuzz_recoil_profile:new():load(wpn_sec, wpn_info)
+	--TODO:!!! check upgrades here, everytime
 	m_profile:apply_static_modifiers()
 	remove_vanilla_cam_recoil()
 
@@ -360,7 +382,6 @@ function init_weapon(wpn_sec)
 	camrc.init(m_profile.shot_delay_enabled and "cubic" or "exp")
 	hudrc.init(wpn_sec, cur_cast_wpn)
 	punchrc.init()
-
 	addon_sig = get_addon_sig()
 	logger.dbg("Initialize weapon")
 end
@@ -657,3 +678,6 @@ M.debug_var = {
 	float_x1 = 0,
 	float_x2 = 0,
 }
+function M.log_cached_weapons()
+	logger.print_table(cached_weapons, "cached weapons")
+end

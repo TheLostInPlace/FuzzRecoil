@@ -365,12 +365,7 @@ end
 local cheat_mag = false
 local inf_weight = fuzz_dev and true or false
 function renderExtra()
-	if ImGui.Button("Log Modi") then
-		local modi_text = "\nstatic_modifiers =" .. tostring(fuzz_recoil.static_modifiers)
-		modi_text = modi_text .. "\n dynamic_modifiers=" .. tostring(fuzz_recoil.dynamic_modifiers)
-		logger.dbg(modi_text)
-	end
-	ImGui.SameLine()
+	---------cheat-------------
 	if ImGui.Button("0Pow") then
 		db.actor:change_power(-1)
 	end
@@ -393,6 +388,16 @@ function renderExtra()
 	end
 	ImGui.SameLine()
 	_, cheat_mag = ImGui.Checkbox("InfAmmo", cheat_mag)
+	-----------logs-----------
+	if ImGui.Button("Log Modi") then
+		local modi_text = "\nstatic_modifiers =" .. tostring(fuzz_recoil.static_modifiers)
+		modi_text = modi_text .. "\n dynamic_modifiers=" .. tostring(fuzz_recoil.dynamic_modifiers)
+		logger.dbg(modi_text)
+	end
+	ImGui.SameLine()
+	if ImGui.Button("Log Cache") then
+		fuzz_recoil.log_cached_weapons()
+	end
 end
 local allowed_kinds = {
 	w_pistol = false,
