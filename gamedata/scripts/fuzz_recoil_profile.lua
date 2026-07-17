@@ -235,9 +235,12 @@ function M:RestoreFromRaw()
 	M.shallow_copy(self.raw_profile, self.static_profile)
 	M.shallow_copy(self.raw_profile, self)
 end
-function M:reload_modifiers()
+function M:reload_all_modifiers()
+	self:reload_static_modier():apply_dynamic_modifiers()
+end
+function M:reload_static_modier()
 	self:RestoreFromRaw()
-	return self:apply_static_modifiers():apply_dynamic_modifiers()
+	return self:apply_static_modifiers()
 end
 
 function M:process_shot_delay(wpn_info, prf_sec)

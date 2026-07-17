@@ -11,11 +11,6 @@ local camrc = fuzz_recoil_cam_recoil.awake()
 local hudrc = fuzz_recoil_hud_recoil.awake()
 local punchrc = fuzz_recoil_punch.awake()
 
---NOTE:update when swithcing wepaon
-M.static_modifiers = fuzz_recoil_modifier:new()
---NOTE:update before fire
-M.dynamic_modifiers = fuzz_recoil_modifier:new()
-
 ---@type fuzz_recoil_profile
 local m_profile = Profile:new()
 ---@class fuzz_recoil_wpn_info
@@ -48,13 +43,13 @@ local cached_weapons = {}
 local cur_wpn = nil
 ---@type CWeapon
 local cur_cast_wpn = nil
+local cur_wpn_id = 0
 local player = nil
 --------- state
 local active = false
 local is_firing = false
 local handling_power = 0.0
 local handling_fatigue = 0
-local FATIGUE_MAX_POWER = 0.55
 --shots in the current burst, drives heat and recoil expansion
 local burst_shots = 0
 --refreshed per shot, addon koefs x ammo k_cam_dispersion and ads flag
@@ -67,7 +62,6 @@ local bloom_applied = -1
 --attached addon fingerprint, throttled check in on_update
 local addon_sig = ""
 local next_addon_check = 0
-local cur_wpn_id = 0
 --bloom multiplies the weapons fire_dispersion_base, silencer, ammo and
 --condition koefs stack on top like vanilla (WeaponDispersion.cpp)
 --base is the flat hip penalty, rate grows per shot, heat caps at max
@@ -86,17 +80,6 @@ M.bloom = {
 		other = { base = 0.6, rate = 0.13, max = 2.8 },
 	},
 }
---TODO:MCM
-function M.on_option_change()
-	init_static_modifiers()
-	init_dynamic_modifiers()
-	m_profile:reload_modifiers()
-	hudrc.on_option_change()
-	camrc.on_option_change()
-	punchrc.on_option_change()
-	hudrc.switch_mode(options.hud_kick_v2 and hudrc.MODE.INSTANT or hudrc.MODE.SPRING)
-	logger.dbg("apply options to hud")
-end
 ------- config
 local allowed_kinds = {
 	w_pistol = true,
@@ -108,6 +91,7 @@ local allowed_kinds = {
 local firing_handling_ease = utils.simple_ease:new(1, 1, 0.2, 4)
 local idle_handling_ease = utils.simple_ease:new(-1, -1, 0.2, 6)
 --NOGUI
+local FATIGUE_MAX_POWER = 0.55
 sniper_idle_handling = { offset = 0.2, intensity = 0.8 }
 
 --------------------
@@ -166,6 +150,15 @@ end
 --------------------
 ---Engine HOOKS
 --------------------
+function M.on_option_change()
+	add_option_scale_modifiers()
+	m_profile:reload_static_modier()
+	hudrc.on_option_change()
+	camrc.on_option_change()
+	punchrc.on_option_change()
+	hudrc.switch_mode(options.hud_kick_v2 and hudrc.MODE.INSTANT or hudrc.MODE.SPRING)
+	-- logger.dbg("apply options to hud")
+end
 function M.on_game_start()
 	RegisterScriptCallback("actor_on_changed_slot", on_changed_slot)
 	RegisterScriptCallback("actor_on_weapon_before_fire", on_before_fire)
@@ -178,8 +171,6 @@ function on_changed_slot()
 	--Never seen it happens since switching animation will give us a natrual delay
 	--but if it happens we can fix it with a TimeEvent
 	M.force_reset_recoil()
-	--NOTE:!!!breaking change,load weapon when switching,
-	--less performance impact on before fire
 	M.check_current_weapon()
 end
 function on_before_fire()
@@ -272,7 +263,8 @@ end
 function start_recoil()
 	active = true
 	get_actor_state()
-	init_dynamic_modifiers()
+	add_actor_stat_modifiers()
+	M.dynamic_modifiers:refresh_modi_cache()
 	m_profile:apply_dynamic_modifiers()
 	camrc.start(m_profile)
 	hudrc.start(m_profile)
@@ -356,8 +348,6 @@ function init_weapon(wpn_sec)
 			profile = m_profile,
 		}
 	end
-	--TODO: better entry point needed
-	init_static_modifiers()
 	--TODO:!!! check upgrades here, everytime
 	m_profile:apply_static_modifiers()
 	remove_vanilla_cam_recoil()
@@ -426,8 +416,6 @@ end
 ---Weapon Check
 ---------------------
 --TODO: fallback to vanilla if something went wrong
---PERF:smart_cast everytime or cached table?
---i think cached table is better ,but we still have to update the profile evertime
 --TODO: use vannilla recoil for grende launcher
 function should_active(wpn_sec)
 	local kind = utils.get_string(wpn_sec, "kind")
@@ -604,12 +592,26 @@ function get_actor_state()
 	end
 	-- logger.dbg("hunger:%.4f,stamina:%.4f", actor_hunger, actor_stamina)
 end
+
 --------------------
 --#region modifiers
 --------------------
-function init_static_modifiers()
+---@param modis ModiData[]
+---@param target_modi fuzz_recoil_modifier
+---@param index_offset integer
+---@param refresh? boolean
+local function add_modis_to(modis, target_modi, index_offset, refresh)
+	for i, modi in ipairs(modis) do
+		target_modi:add_modifier(i + index_offset, modi, true, true)
+	end
+	if refresh then
+		target_modi:refresh_modi_cache()
+	end
+end
+
+function add_option_scale_modifiers()
 	---@type ModiData[]
-	local basic_modi = {
+	local scale_modi = {
 		{ name = "", param = "cam_recoil_power", type = 1, val = options.recoil_cam_scale },
 		-- { name = "", param = "force_pitch", type = 1, val = options.recoil_v_scale },
 		-- { name = "", param = "force_y", type = 1, val = options.recoil_v_scale },
@@ -617,14 +619,11 @@ function init_static_modifiers()
 		-- { name = "", param = "force_x", type = 1, val = options.recoil_h_scale },
 		{ name = "", param = "handling_speed", type = 1, val = options.handling_speed_scale },
 	}
-	for i, v in ipairs(basic_modi) do
-		local result = M.static_modifiers:add_modifier(i, v, true, true)
-	end
-	M.static_modifiers:refresh_modi_cache()
+	add_modis_to(scale_modi, M.static_modifiers, 0, true)
 end
-function init_dynamic_modifiers()
+function add_actor_stat_modifiers()
 	---@type ModiData[]
-	local basic_modi = {
+	local stat_modi = {
 		{ name = "", param = "cam_recoil_power", type = 1, val = actor_recoil_modi_val },
 		{ name = "", param = "force_pitch", type = 1, val = actor_recoil_modi_val },
 		-- { name = "", param = "force_y", type = 1, val = actor_recoil_modi_val },
@@ -632,12 +631,33 @@ function init_dynamic_modifiers()
 		-- { name = "", param = "force_x", type = 1, val = actor_recoil_modi_val },
 		-- { name = "", param = "handling_speed", type = 1, val = actor_recoil_modi_val },
 	}
-	for i, v in ipairs(basic_modi) do
-		local result = M.dynamic_modifiers:add_modifier(i, v, true, true)
-	end
-	M.dynamic_modifiers:refresh_modi_cache()
+	add_modis_to(stat_modi, M.dynamic_modifiers, 0,true)
 end
-function M.reload_static_modifiers()
+
+--NOTE:update when swithcing wepaon
+M.static_modifiers = fuzz_recoil_modifier:new()
+--NOTE:update before fire
+M.dynamic_modifiers = fuzz_recoil_modifier:new()
+
+local m_modifiers = {
+	M.static_modifiers,
+	M.dynamic_modifiers,
+}
+
+---@alias WhichModifier
+---| 1 # static
+---| 2 # dynamic
+---
+---@param modis ModiData[]
+---@param which_modifier WhichModifier
+---@param index_offset integer
+---@param refresh? boolean
+function M.AddModifiers(modis, which_modifier, index_offset, refresh)
+	add_modis_to(modis, m_modifiers[which_modifier], index_offset, refresh)
+end
+--NOTE: only static_modifiers need refresh mannualy.
+function M.ReloadStaticModifiers()
+	M.static_modifiers:refresh_modi_cache()
 	m_profile:apply_static_modifiers()
 end
 --------------------
