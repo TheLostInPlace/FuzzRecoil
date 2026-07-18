@@ -87,10 +87,10 @@
         <text>Bolt action cameras will be lifted on the Y-axis during cycles.</text>
     </string>
     
-    <string id="ui_mcm_fuzz_recoil_hud_kick_v2">
+    <string id="ui_mcm_fuzz_recoil_instant_mode">
         <text>Instant Mode</text>
     </string>
-    <string id="ui_mcm_fuzz_recoil_hud_kick_v2_desc">
+    <string id="ui_mcm_fuzz_recoil_instant_mode_desc">
         <text>NOTE: EXPERIMENTAL. Recoil with instant displacement and eased recovery.</text>
     </string>
 </string_table>

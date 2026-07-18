@@ -21,18 +21,22 @@ local defaults = {
 	--Global vertical recoil additional scale,
 	--positive increases, negative decreases , 0 means default
 	---(-0,9---2.0)
-	recoil_cam_scale = 0.1,
+	recoil_cam_scale = 0,
 	--Global horizontal recoil additional scale,
 	--positive increases, negative decreases , 0 means default
 	---(-0,9---2.0)
-	recoil_h_scale = 0.1,
+	recoil_h_scale = 0,
 	--Global recoil handling additional scale,
 	--positive increases, negative decreases , 0 means default
 	--(-0,9---2.0)
 	handling_speed_scale = 0,
 	--how fast fatigue increases,higher than 0.15 is recommanded,0 to turn it off
 	--(0-0.3)
-	impulse_fatigue_ratio = 0.20, --most gun impulse landed around 2-3
+	impulse_fatigue_ratio = 0.15, --most gun impulse landed around 2-3
+	--per shot punch, fov widen at hip and a positional shove while aiming
+	use_punch = false,
+	--revert the punch to the prior system, console fov and shove only under true PiP
+	punch_legacy = false,
 	--Camera drag for bolt-action weapon
 	--The higher the sharper, the lower the smoother (and softer)
 	--(8-20)
@@ -44,10 +48,6 @@ local defaults = {
 	instant_mode = false,
 	--fire bloom, sustained fire and hip stance widen the real bullet cone
 	use_bloom = true,
-	--per shot punch, fov widen at hip and a positional shove while aiming
-	use_punch = false,
-	--revert the punch to the prior system, console fov and shove only under true PiP
-	punch_legacy = false,
 	--NOTE: HIDDEN FROM MCM for now
 
 	use_addon_ammo_koefs = false,
@@ -93,9 +93,9 @@ function M.on_mcm_load()
             { id = "title", type = "slide", link = "ui_options_slider_player", text = "ui_mcm_fuzz_recoil_title", size = {512, 50}, spacing = 20 },
             { id = "debug_mode", type = "check", val = 1, def = defaults.debug_mode },
             { id = "recoil_group_title", type = "line" },
-            { id = "recoil_cam_scale", type = "track", val = 2, min = -0.9, max = 2.0, step = 0.05, def = defaults.recoil_cam_scale },
-            { id = "recoil_h_scale", type = "track", val = 2, min = -0.9, max = 2.0, step = 0.05, def = defaults.recoil_h_scale },
-            { id = "handling_speed_scale", type = "track", val = 2, min = -0.9, max = 2.0, step = 0.05, def = defaults.handling_speed_scale },
+            { id = "recoil_cam_scale", type = "track", val = 2, min = -0.2, max = 0.2, step = 0.01, def = defaults.recoil_cam_scale },
+            { id = "recoil_h_scale", type = "track", val = 2, min = -0.2, max = 0.2, step = 0.01, def = defaults.recoil_h_scale },
+            { id = "handling_speed_scale", type = "track", val = 2, min = -0.5, max = 1, step = 0.05, def = defaults.handling_speed_scale },
             { id = "impulse_fatigue_ratio", type = "track", val = 2, min = 0.0, max = 0.3, step = 0.01, def = defaults.impulse_fatigue_ratio },
             { id = "use_punch", type = "check", val = 1, def = defaults.use_punch },
             { id = "punch_legacy", type = "check", val = 1, def = defaults.punch_legacy },
@@ -105,7 +105,7 @@ function M.on_mcm_load()
             { id = "experimental_group_title", type = "title",align = "l",text = "ui_mcm_fuzz_recoil_experimental_group_title" },
             { id = "experimental_group_line", type = "line" },
             { id = "use_bloom", type = "check", val = 1, def = defaults.use_bloom },
-            { id = "hud_kick_v2", type = "check", val = 1, def = defaults.hud_kick_v2 },
+            { id = "instant_mode", type = "check", val = 1, def = defaults.instant_mode },
         }
     }
 end
