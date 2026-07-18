@@ -85,9 +85,6 @@ local special_converter = {
 	["pitch_frac"] = function(op)
 		return utils.math_clamp(op.cam_dispersion_frac or 1, 0, 1)
 	end,
-	["zoom_ratio"] = function(op)
-		return op.cam_dispersion > 0 and utils.math_clamp(op.zoom_cam_dispersion / op.cam_dispersion, 0.25, 2) or 1
-	end,
 }
 
 local function convert_single(param_name, op)

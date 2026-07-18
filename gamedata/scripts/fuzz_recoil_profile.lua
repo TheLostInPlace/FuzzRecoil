@@ -25,7 +25,6 @@ local logger = fuzz_recoil_logger
 ---@field pull_force number
 ---@field firing_damping number
 ---
----@field zoom_ratio number
 ---@field is_bolt_action boolean
 ---@field desync_hud boolean
 ---@field pitch_frac number
@@ -61,8 +60,6 @@ local default_profile = {
 	pull_force = 1.5,
 	firing_damping = 1.0,
 
-	--ads kick relative to hip, from vanilla zoom_cam_dispersion/cam_dispersion
-	zoom_ratio = 1,
 	is_bolt_action = false,
 	desync_hud = false,
 	--1 means no per shot variance
@@ -168,7 +165,6 @@ local convert_list = {
 
 	is_bolt_action   = { type = 1, read = false },
 	desync_hud       = { type = 1, read = false },
-	zoom_ratio       = { type = 2, read = false },
 
 	pitch_frac       = { type = 2, read = false },
 	cam_max_angle    = { type = 2, read = false },
@@ -359,7 +355,6 @@ function M.imgui_editor_drawer(_prf, _prf_type, _prf_name)
 	ImGui.Separator()
 	ImGui.Text("Misc")
 	_, _prf.pitch_frac = ImGui.SliderFloat("Pitch Frac", _prf.pitch_frac, 0, 1, "%.2f")
-	_, _prf.zoom_ratio = ImGui.SliderFloat("Zoom Ratio", _prf.zoom_ratio, 0.25, 2, "%.2f")
 
 	ImGui.EndDisabled()
 	ImGui.PopID()

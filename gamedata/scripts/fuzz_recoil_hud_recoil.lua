@@ -56,8 +56,6 @@ local force_yaw = 15
 local force_x = 0.0006
 --shoulder push, z pop per shot
 local force_z = 0.006
---ads kick relative to hip, from vanilla zoom_cam_dispersion/cam_dispersion
-local zoom_ratio = 1
 --deterministic weapon class, drives burst heat
 local burst_class = "other"
 local shot_delay_enabled = false
@@ -128,8 +126,6 @@ smooth_firing_instant = 25
 --Cahced options
 --------------
 local bolt_action_Y_lift = true
-local use_zoom_ratio = false
-
 --------
 ---public getters
 --------
@@ -142,12 +138,8 @@ end
 function M.get_vel_rot()
 	return vel_rot
 end
---hip fire kicks harder, the vanilla zoom ratio is opt in
 function M.get_mode_kick_mul()
-	if is_ads then
-		return (use_zoom_ratio and zoom_ratio or 1) * ads_kick_mul
-	end
-	return hip_kick_mul
+	return is_ads and ads_kick_mul or hip_kick_mul
 end
 
 --------------
@@ -569,7 +561,6 @@ function M.awake()
 end
 function M.on_option_change()
 	bolt_action_Y_lift = options.bolt_action_Y_lift
-	use_zoom_ratio = options.use_zoom_ratio
 	M.switch_mode(options.instant_mode and M.MODE.INSTANT or M.MODE.SPRING)
 	frm.on_shot:add(EVENT_ID, _on_shot_fn)
 	frm.on_firing:add(EVENT_ID, _firing_update_fn)
@@ -584,7 +575,6 @@ function M.cache_profile(profile)
 	force_yaw = profile.force_yaw
 	force_x = profile.force_x
 	force_z = profile.force_z or 0.006
-	zoom_ratio = profile.zoom_ratio or 1
 	burst_class = profile.burst_class or "other"
 
 	use_Y_lift = profile.is_bolt_action
