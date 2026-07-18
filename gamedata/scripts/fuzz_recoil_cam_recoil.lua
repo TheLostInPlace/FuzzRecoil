@@ -85,7 +85,7 @@ end
 ----------
 ---Event
 ----------
-local EVENT_ID = 10
+local EVENT_ID = fuzz_recoil_event.getEventID("cam_recoil")
 ----------
 ---Module
 ----------

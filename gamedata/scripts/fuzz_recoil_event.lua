@@ -10,12 +10,22 @@ M.__index = M
 
 --TODO:or read from modules?
 local event_id_list = {
-	[5] = "main",
 	[9] = "handling_power",
 	[10] = "cam_recoil",
 	[11] = "hud_recoil",
 	[12] = "cam_punch",
 }
+local unknown_id = 100
+function M.getEventID(event_name)
+	for id, n in pairs(event_id_list) do
+		if n == event_name then
+			return id
+		end
+	end
+	unknown_id = unknown_id + 1
+	logger.err("Can't get Event id  fallback to %s", unknown_id)
+	return unknown_id
+end
 ---@type FuzzEvent[]
 local m_events = {}
 local m_events_count = 0

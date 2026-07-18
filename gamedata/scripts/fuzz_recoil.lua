@@ -6,7 +6,7 @@ _G.fuzz_recoil = M
 --------------------
 local Event = fuzz_recoil_event
 
-local HP_EVENT_ID = 9
+local HP_EVENT_ID = Event.getEventID("handling_power")
 
 --FIXME:i don't now how to make generic type working for class
 

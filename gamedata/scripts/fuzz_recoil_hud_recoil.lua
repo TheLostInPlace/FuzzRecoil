@@ -528,7 +528,7 @@ end
 ----------
 ---Event
 ----------
-local EVENT_ID = 11
+local EVENT_ID = fuzz_recoil_event.getEventID("hud_recoil")
 --------------
 --Mode Switching
 --------------

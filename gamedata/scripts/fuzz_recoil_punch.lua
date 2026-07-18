@@ -105,7 +105,7 @@ end
 ----------
 ---Event
 ----------
-local EVENT_ID = 12
+local EVENT_ID = fuzz_recoil_event.getEventID("cam_punch")
 local function sub_events(flag)
 	if flag then
 		--add event
