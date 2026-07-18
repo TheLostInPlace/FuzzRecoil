@@ -10,10 +10,12 @@ M.__index = M
 
 --TODO:or read from modules?
 local event_id_list = {
-	[9] = "handling_power",
-	[10] = "cam_recoil",
-	[11] = "hud_recoil",
-	[12] = "cam_punch",
+	[5] = "shot_delay",
+	[11] = "bloom",
+	[21] = "handling_power",
+	[22] = "cam_recoil",
+	[23] = "hud_recoil",
+	[24] = "cam_punch",
 }
 local unknown_id = 100
 function M.getEventID(event_name)

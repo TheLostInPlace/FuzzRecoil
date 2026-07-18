@@ -20,10 +20,15 @@ M.on_init_wpn = Event.new("init_weapon")
 ---invoke: fun(self: FuzzEvent, profile:fuzz_recoil_profile) }
 M.on_start = Event.new("start")
 
----@alias fuzz_on_before_fire fun()
+---@alias fuzz_on_before_fire fun(is_ads:boolean)
 ---@type FuzzEvent|{ add: fun(self: FuzzEvent, key: integer, handler: fuzz_on_before_fire),
----invoke: fun(self: FuzzEvent) }
+---invoke: fun(self: FuzzEvent,is_ads:boolean) }
 M.on_before_fire = Event.new("before_fire")
+
+---@alias fuzz_on_before_shot fun(hp:number, kick_scale:any, ads:boolean, ...)
+---@type FuzzEvent|{ add: fun(self: FuzzEvent, key: integer, handler: fuzz_on_before_shot),
+---invoke: fun(self: FuzzEvent, hp:number, kick_scale:any, ads:boolean, ...) }
+M.on_before_shot = Event.new("before_shot")
 
 ---@alias fuzz_on_shot fun(hp:number, kick_scale:any, ads:boolean, ...)
 ---@type FuzzEvent|{ add: fun(self: FuzzEvent, key: integer, handler: fuzz_on_shot),
@@ -232,9 +237,7 @@ function actor_on_weapon_before_fire()
 	--WARN: this could called without actually shooting caused by:
 	--misfire ,no ammo, ...?
 	if active then
-		M.on_before_fire:invoke()
-		--FIXME:extra
-		bloom_before_fire()
+		M.on_before_fire:invoke(is_ads)
 	end
 end
 function actor_on_weapon_fired()
@@ -242,20 +245,10 @@ function actor_on_weapon_fired()
 	if not active or not camrc.has_camera_effector() then
 		start_recoil()
 	end
-	if m_profile.shot_delay_enabled then
-		--create is a no op while one is pending, reset makes the delay count from the last shot
-		--PERF: maybe a local timer could be faster?
-		CreateTimeEvent("fuzz_recoil", "bolt_delay_stop", m_profile.shot_delay_time, function()
-			firing_stop()
-			return true
-		end)
-		ResetTimeEvent("fuzz_recoil", "bolt_delay_stop", m_profile.shot_delay_time)
-	end
 	-- logger.dbg("Shot ")
 
 	is_firing = true
-	--FIXME:extra
-	bloom_on_shot(m_profile, is_ads)
+
 	-- ammo_addon_koefs_on_shot()
 
 	M.on_shot:invoke(real_handling_power, impulse_scale, is_ads, shot_cam_k, burst_shots)
@@ -278,10 +271,6 @@ function actor_on_update()
 
 	--stance can change without a shot, keep it current
 	is_ads = cur_cast_wpn:IsZoomed() and true or false
-
-	--FIXME:extra
-	bloom_update(dt)
-	shot_dealy_on_firing(dt)
 
 	if is_firing then
 		M.on_firing:invoke(dt, handling_power, is_ads)
@@ -308,7 +297,6 @@ function start_recoil()
 	m_profile:apply_dynamic_modifiers()
 	M.on_start:invoke(m_profile)
 	-- M.on_start:print_handlers()
-	RemoveTimeEvent("fuzz_recoil", "bolt_delay_stop")
 	-- M.on_firing:print_handlers()
 	-- logger.dbg("Start Recoil")
 end
@@ -319,8 +307,6 @@ function stop_recoil()
 	handling_power = 0
 
 	M.on_stop:invoke()
-	restore_vanilla_fire_disp()
-	RemoveTimeEvent("fuzz_recoil", "bolt_delay_stop")
 
 	-- logger.dbg("reset recoil")
 end
@@ -377,26 +363,32 @@ function update_handling_restoring(dt)
 	end
 end
 
+local SHOT_DELAY_EVENT_ID = Event.getEventID("shot_delay")
 local shot_delay_timer = 0
-local shot_dealy_time = 0.4
+local shot_dealy_duration = 0.4
 ---@param profile fuzz_recoil_profile
 function shot_delay_init(profile)
 	if profile.shot_delay_enabled then
-		--add
+		M.on_shot:add(SHOT_DELAY_EVENT_ID, shot_delay_on_shot)
+		M.on_firing:add(SHOT_DELAY_EVENT_ID, shot_dealy_on_firing)
+		shot_dealy_duration = profile.shot_delay_time
 	else
-		--remove
+		M.on_shot:remove(SHOT_DELAY_EVENT_ID)
+		M.on_firing:remove(SHOT_DELAY_EVENT_ID)
 	end
 end
+
+---@type fuzz_on_shot
 function shot_delay_on_shot()
 	shot_delay_timer = 0
-	--FIXME:add
 end
+---@type fuzz_on_firing
 function shot_dealy_on_firing(dt)
-	shot_delay_timer = shot_delay_timer + dt
-	if shot_delay_timer >= shot_dealy_time then
+	if shot_delay_timer >= shot_dealy_duration then
 		firing_stop()
-		--FIXME:remove
+		shot_delay_timer = 0
 	end
+	shot_delay_timer = shot_delay_timer + dt
 end
 
 ----------------------
@@ -465,8 +457,6 @@ function init_weapon(wpn_sec)
 	end
 
 	M.on_init_wpn:invoke(m_profile, cur_cast_wpn, wpn_sec)
-	--FIXME: extra
-	bloom_init(m_profile, cur_cast_wpn, wpn_sec)
 	-- ammo_addon_koefs_init()
 
 	addon_sig = get_addon_sig()
@@ -568,7 +558,6 @@ function M.check_current_weapon()
 	--otherwise re-equipping it would collect our zeroed values
 	if cur_wpn_id ~= -1 then
 		restore_vanilla_cam_recoil()
-		restore_vanilla_fire_disp()
 	end
 	cur_wpn_id = new_id
 	local wpn_sec = cur_wpn:section()
@@ -657,7 +646,7 @@ end
 --================Bloom
 --fire bloom state, heat in cone multiples over the cached vanilla base
 local bloom_heat = 0
-local orig_fire_disp = 0
+local orig_fire_disp = -1
 local bloom_applied = -1
 --bloom multiplies the weapons fire_dispersion_base, silencer, ammo and
 --condition koefs stack on top like vanilla (WeaponDispersion.cpp)
@@ -676,46 +665,35 @@ M.bloom = {
 		lmg = { base = 0.9, rate = 0.16, max = 4.0 },
 		other = { base = 0.6, rate = 0.13, max = 2.8 },
 	},
+	bc = { base = 0.6, rate = 0.13, max = 2.8 },
 }
---drives the live bullet cone, base hip penalty plus decaying heat
----@type fuzz_on_init_wpn
-function bloom_init(_, cast_wpn, _)
-	--vanilla cone base in radians, bloom multiplies it at runtime
-	orig_fire_disp = cast_wpn and cast_wpn:GetFireDispersion() or 0
-	bloom_heat = 0
-	bloom_applied = -1
+local BLOOM_EVENT_ID = Event.getEventID("bloom")
+function M.get_bloom_state()
+	return bloom_heat, bloom_applied, orig_fire_disp
 end
----@type fuzz_on_before_fire
-function bloom_before_fire()
-	bloom_update(0)
-end
-function bloom_on_shot(profile, ads)
-	local bc = M.bloom.classes[profile.burst_class] or M.bloom.classes.other
-	bloom_heat = math.min(bloom_heat + bc.rate * (ads and M.bloom.ads_mul or 1), bc.max)
-end
-function bloom_update(dt)
-	if not cur_cast_wpn or orig_fire_disp <= 0 then
-		return
-	end
-	if not options.use_bloom then
-		if bloom_applied ~= 1 then
+function bloom_on_option_change()
+	if options.use_bloom then
+		M.on_init_wpn:add(BLOOM_EVENT_ID, bloom_init)
+		M.on_before_fire:add(BLOOM_EVENT_ID, bloom_before_fire)
+		M.on_shot:add(BLOOM_EVENT_ID, bloom_on_shot)
+		M.on_firing:add(BLOOM_EVENT_ID, bloom_update)
+		M.on_restoring:add(BLOOM_EVENT_ID, bloom_restore)
+		M.on_stop:add(BLOOM_EVENT_ID, bloom_on_stop)
+	else
+		M.on_init_wpn:remove(BLOOM_EVENT_ID)
+		M.on_before_fire:remove(BLOOM_EVENT_ID)
+		M.on_shot:remove(BLOOM_EVENT_ID)
+		M.on_firing:remove(BLOOM_EVENT_ID)
+		M.on_restoring:remove(BLOOM_EVENT_ID)
+		M.on_stop:remove(BLOOM_EVENT_ID)
+		if bloom_applied ~= 1 and cur_cast_wpn and orig_fire_disp ~= -1 then
 			cur_cast_wpn:SetFireDispersion(orig_fire_disp)
 			bloom_applied = 1
 		end
-		return
-	end
-	--heat only cools between bursts, sustained fire climbs all the way to the class cap
-	if not is_firing then
-		bloom_heat = bloom_heat * math.exp(-M.bloom.decay * dt)
-	end
-	local bc = M.bloom.classes[m_profile.burst_class] or M.bloom.classes.other
-	local mul = 1 + (bc.base * (is_ads and M.bloom.ads_base or 1) + bloom_heat) * M.bloom.variance
-	if math.abs(mul - bloom_applied) > 0.01 then
-		cur_cast_wpn:SetFireDispersion(orig_fire_disp * mul)
-		bloom_applied = mul
 	end
 end
-function restore_vanilla_fire_disp()
+---NOTE: switching wepaon will force restore ori, no worry..
+local function restore_vanilla_fire_disp()
 	if not cur_cast_wpn or orig_fire_disp <= 0 then
 		return
 	end
@@ -723,10 +701,46 @@ function restore_vanilla_fire_disp()
 	bloom_applied = -1
 	bloom_heat = 0
 end
-
-function M.get_bloom_state()
-	return bloom_heat, bloom_applied, orig_fire_disp
+--drives the live bullet cone, base hip penalty plus decaying heat
+---@type fuzz_on_init_wpn
+function bloom_init(_, cast_wpn, _)
+	--vanilla cone base in radians, bloom multiplies it at runtime
+	orig_fire_disp = cast_wpn and cast_wpn:GetFireDispersion() or 0
+	bloom_heat = 0
+	bloom_applied = -1
+	M.bloom.bc = M.bloom.classes[m_profile.burst_class] or M.bloom.classes.other
 end
+---@type fuzz_on_before_fire
+function bloom_before_fire(ads)
+	bloom_update(0, 0, ads)
+end
+---@type fuzz_on_shot
+function bloom_on_shot(_, _, ads)
+	bloom_heat = math.min(bloom_heat + M.bloom.bc.rate * (ads and M.bloom.ads_mul or 1), M.bloom.bc.max)
+end
+---@type fuzz_on_firing
+function bloom_update(dt, _, ads)
+	if not cur_cast_wpn or orig_fire_disp <= 0 then
+		return
+	end
+	--heat only cools between bursts, sustained fire climbs all the way to the class cap
+	local bc = M.bloom.bc
+	local mul = 1 + (bc.base * (ads and M.bloom.ads_base or 1) + bloom_heat) * M.bloom.variance
+	if math.abs(mul - bloom_applied) > 0.01 then
+		cur_cast_wpn:SetFireDispersion(orig_fire_disp * mul)
+		bloom_applied = mul
+	end
+end
+---@type fuzz_on_restoring
+function bloom_restore(dt)
+	bloom_heat = bloom_heat * math.exp(-M.bloom.decay * dt)
+end
+---@type fuzz_on_stop
+function bloom_on_stop()
+	bloom_heat = 0
+	restore_vanilla_fire_disp()
+end
+
 --================actor stats
 local actor_hunger = 1
 local actor_stamina = 1
@@ -751,6 +765,7 @@ function get_actor_state()
 	end
 	-- logger.dbg("hunger:%.4f,stamina:%.4f", actor_hunger, actor_stamina)
 end
+function check_extra_feats() end
 
 --------------------
 --#region modifiers
@@ -870,6 +885,7 @@ end
 ------------
 M.on_restoring.on_empty = stop_recoil
 M.on_firing:add(HP_EVENT_ID, update_handling_firing)
+M.on_init_wpn:add(SHOT_DELAY_EVENT_ID, shot_delay_init)
 --------------------------------------
 ---Debug
 --------------------------------------
