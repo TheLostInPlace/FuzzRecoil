@@ -37,6 +37,8 @@ local defaults = {
 	use_punch = false,
 	--revert the punch to the prior system, console fov and shove only under true PiP
 	punch_legacy = false,
+	--return floor at the burst start aim, user downpull is not returned again
+	use_comp_return = true,
 	--Camera drag for bolt-action weapon
 	--The higher the sharper, the lower the smoother (and softer)
 	--(8-20)
@@ -105,6 +107,7 @@ function M.on_mcm_load()
             { id = "experimental_group_title", type = "title",align = "l",text = "ui_mcm_fuzz_recoil_experimental_group_title" },
             { id = "experimental_group_line", type = "line" },
             { id = "use_bloom", type = "check", val = 1, def = defaults.use_bloom },
+            { id = "use_comp_return", type = "check", val = 1, def = defaults.use_comp_return },
             { id = "instant_mode", type = "check", val = 1, def = defaults.instant_mode },
         }
     }
