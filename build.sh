@@ -53,6 +53,7 @@ copy_files() {
 
 copy_files "00 Core" \
 	"gamedata/anims/camera_effects/onerad.anm" \
+	"./gamedata/anims/camera_effects/oneshove.anm" \
 	"gamedata/scripts/fuzz_recoil_converter.lua" \
 	"gamedata/scripts/fuzz_recoil_logger.lua" \
 	"gamedata/scripts/fuzz_recoil_utils.lua" \
