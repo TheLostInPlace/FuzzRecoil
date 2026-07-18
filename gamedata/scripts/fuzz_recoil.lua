@@ -133,7 +133,7 @@ local orig_fire_disp = 0
 local bloom_applied = -1
 --attached addon fingerprint, throttled check in on_update
 local addon_sig = ""
-local next_addon_check = 0
+local check_addon_timer = 0
 --bloom multiplies the weapons fire_dispersion_base, silencer, ammo and
 --condition koefs stack on top like vanilla (WeaponDispersion.cpp)
 --base is the flat hip penalty, rate grows per shot, heat caps at max
@@ -301,7 +301,7 @@ function actor_on_update()
 	if not active then
 		return
 	end
-	check_addon()
+	check_addon(dt)
 
 	---@diagnostic disable-next-line: need-check-nil, undefined-field
 	if is_firing and cur_wpn:get_state() ~= 5 then
@@ -637,15 +637,16 @@ function update_shot_cam_k()
 	shot_cam_k = m_wpn_info.addon_cam_k * get_ammo_cam_k()
 end
 --addon swap while adjust mode is on sticks the hands, reset and reinit instead
-function check_addon()
-	--FIXME: use timer
-	if time_global() >= next_addon_check then
-		next_addon_check = time_global() + 250
+function check_addon(dt)
+	if check_addon_timer >= 0.25 then
+		check_addon_timer = 0
 		if get_addon_sig() ~= addon_sig then
 			M.force_reset_recoil()
 			cur_wpn_id = 0
 			return
 		end
+	else
+		check_addon_timer = check_addon_timer + dt
 	end
 end
 --attached addon fingerprint, a change means the engine reloaded hud measures
